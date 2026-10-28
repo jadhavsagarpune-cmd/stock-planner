@@ -24,6 +24,7 @@ If builds fail in ~3–4s with **exit 127** on `vite` / `npm run build`:
 ## Repo-side fixes (already in tree)
 
 - `package-lock.json` must resolve packages from the npm registry (not symlinks to another monorepo folder).
-- `.npmrc`: `legacy-peer-deps=true` (avoids npm peer-resolution crash on Vite 8).
+- `.npmrc`: `legacy-peer-deps=true` (peer-deps resolution on npm).
+- `vite` **^6.3.5** (Node 20; Vite 8 preset on dashboard can cause exit 127).
 - `scripts.build`: `npx vite build`
 - `vercel.json`: `buildCommand`: `npm install && npx vite build`, `outputDirectory`: `dist` (no `framework` field).
