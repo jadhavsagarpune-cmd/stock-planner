@@ -9,22 +9,29 @@ function QuoteRow({ it, preColumnMuted }) {
   const m = full.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
   const displayName = m ? m[1].trim() : full;
   const ticker = m ? m[2] : it.name;
+  const symbol = String(it.name || ticker).trim();
+  const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(`${symbol} stock`)}`;
   const market = exchangeHint(it.name);
 
   return (
     <tr className="border-t border-slate-800/60">
-      <td
-        className={`py-2 pr-2 text-sm leading-snug ${
-          rowMuted ? 'text-slate-500' : 'text-slate-200'
-        }`}
-        title={`${full} · ${market}`}
-      >
-        {it.status === 'pending' && (
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-500 mr-2 align-middle animate-pulse" />
-        )}
-        <span className="font-medium block sm:inline">{displayName}</span>
-        <span className="text-slate-500 text-xs block sm:inline sm:ml-1.5 font-mono">{ticker}</span>
-        <span className="text-slate-600 text-[10px] block">{market}</span>
+      <td className="py-2 pr-2 text-sm leading-snug">
+        <a
+          href={googleUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`block cursor-pointer hover:underline ${
+            rowMuted ? 'text-slate-500' : 'text-slate-200'
+          }`}
+          title={`Search ${symbol} on Google · ${market}`}
+        >
+          {it.status === 'pending' && (
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-500 mr-2 align-middle animate-pulse" />
+          )}
+          <span className="font-medium block sm:inline">{displayName}</span>
+          <span className="text-slate-500 text-xs block sm:inline sm:ml-1.5 font-mono">{ticker}</span>
+          <span className="text-slate-600 text-[10px] block">{market}</span>
+        </a>
       </td>
       <td
         className={`py-2 pr-2 text-right text-sm whitespace-nowrap ${
