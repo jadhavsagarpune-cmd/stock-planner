@@ -42,9 +42,11 @@ git remote -v
 Add remote and push **only to your repo**:
 
 ```bash
-git remote add origin https://github.com/YOUR_USER/stock-planner.git
-git push -u origin main
+gh auth login   # sign in as jadhavsagarpune-cmd (personal, not Marvell)
+./publish-personal-github.sh
 ```
+
+Or manually:
 
 ## 3. Import on Vercel
 
