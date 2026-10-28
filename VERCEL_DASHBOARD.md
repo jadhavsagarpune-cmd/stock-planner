@@ -5,12 +5,12 @@
 
 | Field | Value |
 |--------|--------|
-| **Framework Preset** | Other (or Vite — must not skip `npm install`) |
+| **Framework Preset** | **Other** (avoid Vite preset — it runs bare `vite build` → exit 127) |
 | **Root Directory** | `.` (repo root; this app is the whole repo) |
 | **Node.js Version** | **20.x** (matches `package.json` `"engines": { "node": ">=20" }`) |
 | **Install Command** | **Leave EMPTY** (uses default `npm install`) — **do not** set a custom install that omits deps |
 | **Build Command** | **Leave EMPTY** (repo `vercel.json` runs `npm install && npx vite build`) **OR** set exactly: `npm install && npx vite build` |
-| **Output Directory** | **Leave EMPTY** (uses `vercel.json` `dist`) **OR** set exactly: `dist` |
+| **Output Directory** | **Leave EMPTY** (let `vercel.json` set `dist`) — turn dashboard override **OFF** |
 
 ## Clear broken overrides
 
