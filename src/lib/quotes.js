@@ -3,6 +3,16 @@ const HEADERS = {
   Accept: 'application/json',
 };
 
+/** Production (Vercel): same-origin proxy avoids browser CORS blocks on Yahoo. */
+function chartFetchUrl(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  const qs = 'interval=1m&range=1d';
+  if (import.meta.env.DEV) {
+    return `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(sym))}?${qs}`;
+  }
+  return `/api/quote?symbol=${encodeURIComponent(sym)}`;
+}
+
 function float(v) {
   if (v == null) return null;
   const n = Number(v);
@@ -21,14 +31,13 @@ function deriveChangePct(price, base) {
 }
 
 /**
- * Client-side Yahoo chart quote (same shape as ILM backend stock_quote.fetch_yahoo_quote).
- * Works from static hosts when Yahoo is reachable; blocked on some corporate networks.
+ * Yahoo chart quote (same shape as ILM backend stock_quote.fetch_yahoo_quote).
+ * Dev: direct Yahoo. Production: /api/quote serverless proxy on Vercel.
  */
 export async function fetchYahooQuote(symbol, { signal } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) throw new Error('symbol required');
-  const url = YAHOO_CHART.replace('{symbol}', encodeURIComponent(sym));
-  const resp = await fetch(`${url}?interval=1m&range=1d`, {
+  const resp = await fetch(chartFetchUrl(sym), {
     headers: HEADERS,
     signal,
   });
