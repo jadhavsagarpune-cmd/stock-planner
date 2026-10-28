@@ -73,6 +73,17 @@ npx vercel login          # one-time browser auth
 npx vercel --prod         # follow prompts; link or create project
 ```
 
+**Lab / corporate proxy:** Vercel CLI often fails with `fetch failed` or `ECONNRESET` on Marvell networks. Either:
+
+- Import via browser (step 3) from your phone or home network — **easiest**; or
+- Create a token at [vercel.com/account/tokens](https://vercel.com/account/tokens), then:
+
+```bash
+cd stock-planner
+export VERCEL_TOKEN='your_token'
+./deploy-vercel.sh
+```
+
 Requires `vercel login` or a valid `VERCEL_TOKEN` in the environment (create at Vercel → Settings → Tokens).
 
 ## 5. Verify after deploy
