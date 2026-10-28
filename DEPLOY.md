@@ -55,9 +55,12 @@ Or manually:
 3. Project settings:
    - **Framework Preset:** Vite (or Other — `vercel.json` already sets this)
    - **Root Directory:** `.` (repo root is `stock-planner/`)
-   - **Build Command:** `npm run build` (default with `vercel.json`)
+   - **Build Command:** leave empty or `npm run build` (must match `vercel.json`; dashboard overrides win over the file)
+   - **Install Command:** leave **empty** so Vercel uses `vercel.json` (`npm install`), **or** set exactly `npm install --include=dev` if you override install in the dashboard — do not set a conflicting custom install that skips dev tools unless `vite` is in `dependencies` (it is, in this repo)
    - **Output Directory:** `dist`
 4. **Deploy**.
+
+If builds fail with exit **127** on `vite`, check **Project Settings → Build & Output → Install Command**: clear it (use repo `vercel.json`) or align with `npm install --include=dev`; ensure the dashboard is not overriding `vercel.json` with `npm ci --omit=dev` or similar.
 
 Production URL will look like `https://stock-planner-xxxx.vercel.app` (or your custom domain).
 
