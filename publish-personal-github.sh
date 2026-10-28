@@ -10,6 +10,8 @@ if ! gh auth status -h github.com &>/dev/null; then
   exit 1
 fi
 
+gh auth setup-git -h github.com 2>/dev/null || true
+
 logged=$(gh api user -q .login 2>/dev/null || true)
 if [[ -n "$logged" && "$logged" != "$USER" ]]; then
   echo "gh is logged in as ${logged}, not ${USER}. Run: gh auth logout && gh auth login"
