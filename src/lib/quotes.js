@@ -21,7 +21,8 @@ function float(v) {
 
 function yahooChangePct(v) {
   if (v == null) return null;
-  if (Math.abs(v) < 1.5) return v * 100;
+  // Chart meta is usually already percent (1.48 = 1.48%). Scale only clear fractions (|v| < 0.25).
+  if (Math.abs(v) > 0 && Math.abs(v) < 0.25) return v * 100;
   return v;
 }
 
@@ -50,14 +51,17 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   const regularPrice = float(meta.regularMarketPrice);
   const premarketPrice = float(meta.preMarketPrice);
   const previousClose = float(meta.chartPreviousClose) ?? float(meta.previousClose);
-  let regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
-  let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
+  let regularChangePct = deriveChangePct(regularPrice, previousClose);
   if (regularChangePct == null) {
-    regularChangePct = deriveChangePct(regularPrice, previousClose);
+    regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
   }
-  if (premarketChangePct == null && premarketPrice != null) {
-    const base = regularPrice ?? previousClose;
-    premarketChangePct = deriveChangePct(premarketPrice, base);
+  let premarketChangePct = null;
+  if (premarketPrice != null) {
+    const preBase = regularPrice ?? previousClose;
+    premarketChangePct = deriveChangePct(premarketPrice, preBase);
+  }
+  if (premarketChangePct == null) {
+    premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
   }
 
   return {
