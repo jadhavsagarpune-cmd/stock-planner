@@ -44,6 +44,16 @@ export function pickExtendedQuote(it, mode) {
   return { price, pct };
 }
 
+export function formatInr(amount) {
+  if (amount == null || Number.isNaN(Number(amount))) return '—';
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(amount));
+}
+
 export function formatStockPrice(price, currency = 'USD') {
   if (price == null || Number.isNaN(Number(price))) return '—';
   const cur = (currency || 'USD').toUpperCase();

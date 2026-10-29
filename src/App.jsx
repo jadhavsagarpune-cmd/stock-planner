@@ -15,6 +15,7 @@ import {
 } from './lib/stockPriceAlerts';
 import SemiconductorQuotesTable from './components/SemiconductorQuotesTable';
 import PriceChangeBadge from './components/PriceChangeBadge';
+import MrvlHoldingsPanel from './components/MrvlHoldingsPanel';
 
 const MRVL_POLL_MS = 60_000;
 const EXTENDED_WATCHLIST_POLL_MS = 60_000;
@@ -30,6 +31,7 @@ export default function App() {
   const [usdInrErr, setUsdInrErr] = useState('');
   const [notifyOn, setNotifyOn] = useState(() => getDesktopNotificationsEnabled());
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [holdingsOpen, setHoldingsOpen] = useState(false);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
@@ -137,9 +139,16 @@ export default function App() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <span
-            className="text-xs px-2.5 py-2 rounded-lg bg-slate-950/70 border border-slate-600/50 text-slate-300 tabular-nums"
-            title={usdInrErr || `USD/INR spot${fxTime ? ` · ${fxTime}` : ''}`}
+          <button
+            type="button"
+            onClick={() => setHoldingsOpen(true)}
+            className="text-xs px-2.5 py-2 rounded-lg bg-slate-950/70 border border-slate-600/50 text-slate-300 tabular-nums hover:border-violet-500/40 hover:bg-slate-900/90 transition-colors cursor-pointer"
+            title={
+              usdInrErr ||
+              `USD/INR spot · click for MRVL INR holdings${fxTime ? ` · ${fxTime}` : ''}`
+            }
+            aria-expanded={holdingsOpen}
+            aria-haspopup="dialog"
           >
             <span className="text-[10px] text-slate-500 uppercase tracking-wide mr-1">USD/INR</span>
             <span className="font-mono font-semibold">
@@ -148,7 +157,8 @@ export default function App() {
             {fxTime && (
               <span className="text-[10px] text-slate-600 ml-1 hidden sm:inline">{fxTime}</span>
             )}
-          </span>
+            <span className="text-[10px] text-violet-400/80 ml-1.5 hidden sm:inline">₹ calc</span>
+          </button>
           <button
             type="button"
             onClick={refreshAll}
@@ -215,6 +225,14 @@ export default function App() {
           <SemiconductorQuotesTable items={items} extendedMode={extendedMode} />
         </div>
       </section>
+
+      <MrvlHoldingsPanel
+        open={holdingsOpen}
+        onClose={() => setHoldingsOpen(false)}
+        mrvl={mrvl}
+        usdInr={usdInr}
+        usdInrErr={usdInrErr}
+      />
 
       <p className="text-[11px] text-slate-600 mt-4 leading-relaxed">
         Alerts need this tab open (browser Notification API). iOS Safari limits background
