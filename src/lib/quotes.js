@@ -216,8 +216,8 @@ function normalizeUsdInrRate(quote) {
   let rate = quote.regular_price;
   if (rate == null) throw new Error('USD/INR price missing');
   if (rate > 0 && rate < 2) rate = 1 / rate;
-  // Spot USD/INR ~76–92; ~95 is typically a wrong pair (e.g. KRW misread).
-  if (rate < 75 || rate > 92) {
+  // Spot USD/INR sanity band (INR=X); reject obvious wrong-pair reads (e.g. KRW ~1300).
+  if (rate < 80 || rate > 110) {
     throw new Error(`USD/INR out of range (${rate}) — expected INR=X spot`);
   }
   return rate;

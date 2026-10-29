@@ -54,6 +54,14 @@ export function formatInr(amount) {
   }).format(Number(amount));
 }
 
+/** MRVL-only inline hint: USD share price × USD/INR spot. */
+export function formatMrvlInrHint(priceUsd, fxRate) {
+  const usd = Number(priceUsd);
+  const fx = Number(fxRate);
+  if (!Number.isFinite(usd) || !Number.isFinite(fx) || fx <= 0) return null;
+  return formatInr(usd * fx);
+}
+
 export function formatStockPrice(price, currency = 'USD') {
   if (price == null || Number.isNaN(Number(price))) return '—';
   const cur = (currency || 'USD').toUpperCase();

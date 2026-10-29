@@ -1,4 +1,4 @@
-import { formatStockPrice, pickExtendedQuote } from '../lib/stockFormat';
+import { formatMrvlInrHint, formatStockPrice, pickExtendedQuote } from '../lib/stockFormat';
 import {
   extendedColumnLabel,
   isExtendedColumnMuted,
@@ -13,7 +13,7 @@ function extendedColumnTitle(mode) {
   return 'Pre-market vs regular close';
 }
 
-function QuoteRow({ it, extendedMode }) {
+function QuoteRow({ it, extendedMode, fxRate }) {
   const rowMuted = it.status === 'pending';
   const rowErr = it.status === 'failed';
   const full = it.label || it.name;
@@ -25,6 +25,13 @@ function QuoteRow({ it, extendedMode }) {
   const market = exchangeHint(it.name);
   const columnMuted = isExtendedColumnMuted(extendedMode);
   const ext = pickExtendedQuote(it, extendedMode);
+  const isMrvl = symbol.toUpperCase() === 'MRVL';
+  const inrHint =
+    isMrvl && fxRate != null && it.regular_price != null
+      ? formatMrvlInrHint(it.regular_price, fxRate)
+      : null;
+  const extInrHint =
+    isMrvl && fxRate != null && ext?.price != null ? formatMrvlInrHint(ext.price, fxRate) : null;
 
   return (
     <tr className="border-t border-slate-800/60">
@@ -57,6 +64,9 @@ function QuoteRow({ it, extendedMode }) {
           <div className="flex flex-col items-end gap-0.5">
             <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
               {formatStockPrice(it.regular_price, it.currency)}
+              {inrHint && (
+                <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
+              )}
             </span>
             <PriceChangeBadge pct={it.regular_change_pct} />
           </div>
@@ -74,6 +84,9 @@ function QuoteRow({ it, extendedMode }) {
           <div className="flex flex-col items-end gap-0.5">
             <span className="font-mono tabular-nums text-violet-200 font-semibold text-xs sm:text-sm">
               {formatStockPrice(ext?.price, it.currency)}
+              {extInrHint && (
+                <span className="text-violet-300/80 font-normal ml-1">({extInrHint})</span>
+              )}
             </span>
             <PriceChangeBadge pct={ext?.pct} />
           </div>
@@ -90,7 +103,7 @@ function pinMrvlFirst(items) {
   return [...mrvl, ...rest];
 }
 
-export default function SemiconductorQuotesTable({ items, extendedMode: extendedModeProp }) {
+export default function SemiconductorQuotesTable({ items, extendedMode: extendedModeProp, usdInr }) {
   if (!items.length) {
     return (
       <p className="text-sm text-slate-500 py-8 text-center">Tap Refresh to load quotes.</p>
@@ -100,6 +113,7 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
   const extendedMode = extendedModeProp ?? resolveUsExtendedColumnMode(items);
   const columnMuted = isExtendedColumnMuted(extendedMode);
   const extLabel = extendedColumnLabel(extendedMode);
+  const fxRate = usdInr?.rate != null ? Number(usdInr.rate) : null;
 
   const ordered = pinMrvlFirst(items);
   const mid = Math.ceil(ordered.length / 2);
@@ -130,7 +144,7 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
           {tableHead}
           <tbody>
             {left.map((it) => (
-              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} />
+              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} fxRate={fxRate} />
             ))}
           </tbody>
         </table>
@@ -140,7 +154,7 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
           {tableHead}
           <tbody>
             {right.map((it) => (
-              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} />
+              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} fxRate={fxRate} />
             ))}
           </tbody>
         </table>

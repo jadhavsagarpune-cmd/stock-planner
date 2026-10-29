@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SEMICON_WATCHLIST } from './data/watchlist';
 import { fetchMrvlQuote, fetchUsdInrRate, fetchWatchlistQuotes } from './lib/quotes';
-import { formatStockPrice, pickExtendedQuote } from './lib/stockFormat';
+import { formatMrvlInrHint, formatStockPrice, pickExtendedQuote } from './lib/stockFormat';
 import {
   extendedColumnLabel,
   isExtendedColumnMuted,
@@ -112,6 +112,13 @@ export default function App() {
   const extMuted = isExtendedColumnMuted(extendedMode);
   const extLabel = extendedColumnLabel(extendedMode);
   const mrvlExt = pickExtendedQuote(mrvl, extendedMode);
+  const fxRate = usdInr?.rate != null ? Number(usdInr.rate) : null;
+  const mrvlInrHint =
+    mrvl?.regular_price != null && fxRate != null
+      ? formatMrvlInrHint(mrvl.regular_price, fxRate)
+      : null;
+  const mrvlExtInrHint =
+    mrvlExt?.price != null && fxRate != null ? formatMrvlInrHint(mrvlExt.price, fxRate) : null;
   const fxTime = usdInr?.fetched_at
     ? new Date(usdInr.fetched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -191,6 +198,11 @@ export default function App() {
               <span className="text-xs text-slate-500 block">Current</span>
               <span className="font-mono text-lg font-semibold tabular-nums">
                 {formatStockPrice(mrvl.regular_price, mrvl.currency)}
+                {mrvlInrHint && (
+                  <span className="text-sm font-normal text-violet-300/90 ml-1.5">
+                    ({mrvlInrHint})
+                  </span>
+                )}
               </span>
               <PriceChangeBadge pct={mrvl.regular_change_pct} className="ml-2" />
             </div>
@@ -199,6 +211,11 @@ export default function App() {
                 <span className="text-xs text-slate-500 block">{extLabel}</span>
                 <span className="font-mono text-violet-200 font-semibold tabular-nums">
                   {formatStockPrice(mrvlExt.price, mrvl.currency)}
+                  {mrvlExtInrHint && (
+                    <span className="text-sm font-normal text-violet-300/80 ml-1.5">
+                      ({mrvlExtInrHint})
+                    </span>
+                  )}
                 </span>
                 <PriceChangeBadge pct={mrvlExt.pct} className="ml-2" />
               </div>
@@ -222,7 +239,7 @@ export default function App() {
           </span>
         </div>
         <div className="px-2 sm:px-4 py-3">
-          <SemiconductorQuotesTable items={items} extendedMode={extendedMode} />
+          <SemiconductorQuotesTable items={items} extendedMode={extendedMode} usdInr={usdInr} />
         </div>
       </section>
 

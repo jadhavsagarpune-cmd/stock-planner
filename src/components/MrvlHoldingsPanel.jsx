@@ -45,13 +45,16 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
     ? new Date(usdInr.fetched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
 
-  const { usdTotal, inrTotal } = useMemo(() => {
+  const { usdTotal, inrTotal, inrPerShare } = useMemo(() => {
     if (shareCount == null || shareCount === 0 || priceUsd == null) {
-      return { usdTotal: null, inrTotal: null };
+      return { usdTotal: null, inrTotal: null, inrPerShare: null };
     }
     const usd = shareCount * priceUsd;
-    if (fxRate == null) return { usdTotal: usd, inrTotal: null };
-    return { usdTotal: usd, inrTotal: usd * fxRate };
+    if (fxRate == null) {
+      return { usdTotal: usd, inrTotal: null, inrPerShare: null };
+    }
+    const perShare = priceUsd * fxRate;
+    return { usdTotal: usd, inrTotal: usd * fxRate, inrPerShare: perShare };
   }, [shareCount, priceUsd, fxRate]);
 
   if (!open) return null;
@@ -103,9 +106,12 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
                 )}
               </span>
             </div>
+            {usdInrErr && fxRate == null && (
+              <p className="text-[10px] text-amber-300/80">{usdInrErr}</p>
+            )}
             <div className="flex justify-between gap-2">
               <span>MRVL price (USD)</span>
-              <span className="font-mono tabular-nums text-slate-200">
+              <span className="font-mono tabular-nums text-slate-200 text-right">
                 {customPrice != null ? (
                   <>
                     {formatStockPrice(customPrice, 'USD')}
@@ -116,6 +122,12 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
                 ) : (
                   '—'
                 )}
+              </span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span>Per share (INR)</span>
+              <span className="font-mono tabular-nums text-violet-200">
+                {inrPerShare != null ? formatInr(inrPerShare) : '—'}
               </span>
             </div>
           </div>
@@ -148,13 +160,20 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
             />
           </label>
 
-          <div className="rounded-lg border border-violet-500/30 bg-violet-950/30 px-3 py-3">
-            <div className="text-[10px] uppercase tracking-wide text-violet-300/80 mb-1">
-              INR total
+          <div className="rounded-lg border border-violet-500/30 bg-violet-950/30 px-3 py-3 space-y-2">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-violet-300/80 mb-1">
+                INR total
+              </div>
+              <div className="font-mono text-xl font-semibold tabular-nums text-violet-100">
+                {inrTotal != null ? formatInr(inrTotal) : '—'}
+              </div>
             </div>
-            <div className="font-mono text-xl font-semibold tabular-nums text-violet-100">
-              {inrTotal != null ? formatInr(inrTotal) : '—'}
-            </div>
+            {inrPerShare != null && shareCount != null && shareCount > 0 && (
+              <div className="text-xs text-slate-400 font-mono tabular-nums">
+                {formatInr(inrPerShare)} × {shareCount} shares
+              </div>
+            )}
             {usdTotal != null && (
               <div className="text-xs text-slate-500 mt-1 font-mono tabular-nums">
                 ≈ {formatStockPrice(usdTotal, 'USD')} USD
