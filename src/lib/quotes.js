@@ -65,7 +65,7 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   }
 
   const marketState = String(meta.marketState || '').trim().toUpperCase();
-  const currentPrice = float(meta.currentPrice);
+  let currentPrice = float(meta.currentPrice);
   let postmarketPrice = float(meta.postMarketPrice);
   if (postmarketPrice == null && (marketState === 'POST' || marketState === 'POSTPOST')) {
     if (currentPrice != null && currentPrice !== regularPrice) postmarketPrice = currentPrice;
