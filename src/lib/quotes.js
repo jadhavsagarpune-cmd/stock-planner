@@ -114,6 +114,20 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     premarketChangePct = deriveChangePct(premarketPrice, regularPrice);
   }
 
+  // Yahoo chart v8 often omits postMarketPrice; fulldayPrice is the live extended tick (see MRVL meta).
+  const fulldayPrice = float(meta.fulldayPrice);
+  if (currentPrice == null && fulldayPrice != null) {
+    currentPrice = fulldayPrice;
+  }
+  if (
+    regularPrice != null
+    && fulldayPrice != null
+    && Math.abs(fulldayPrice - regularPrice) >= 0.01
+  ) {
+    if (postmarketPrice == null) postmarketPrice = fulldayPrice;
+    if (premarketPrice == null) premarketPrice = fulldayPrice;
+  }
+
   let postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
   if (postmarketChangePct == null) {
     postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
@@ -131,6 +145,7 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     premarket_change_pct: premarketChangePct,
     postmarket_price: postmarketPrice,
     postmarket_change_pct: postmarketChangePct,
+    fullday_price: fulldayPrice,
     source: 'yahoo_finance',
   };
 }

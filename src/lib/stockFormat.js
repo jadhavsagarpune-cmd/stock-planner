@@ -30,7 +30,8 @@ function currentExtendedPrice(it) {
 export function pickExtendedQuote(it, mode) {
   if (!it || mode === 'regular') return null;
   if (mode === 'post') {
-    const price = it.postmarket_price ?? currentExtendedPrice(it) ?? it.premarket_price;
+    const price =
+      it.postmarket_price ?? it.fullday_price ?? currentExtendedPrice(it) ?? it.premarket_price;
     let pct = it.postmarket_change_pct;
     if (pct == null && price != null && it.regular_price != null) {
       pct = preChangePctVsRegular(price, it.regular_price);
