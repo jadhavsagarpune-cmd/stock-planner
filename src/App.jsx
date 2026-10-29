@@ -17,6 +17,7 @@ import SemiconductorQuotesTable from './components/SemiconductorQuotesTable';
 import PriceChangeBadge from './components/PriceChangeBadge';
 
 const MRVL_POLL_MS = 60_000;
+const EXTENDED_WATCHLIST_POLL_MS = 60_000;
 const WATCHLIST_POLL_MS = 5 * 60_000;
 const USD_INR_POLL_MS = 5 * 60_000;
 
@@ -100,6 +101,12 @@ export default function App() {
   }, [notifyOn, refreshAll]);
 
   const extendedMode = resolveUsExtendedColumnMode(items.length ? items : mrvl?.market_state);
+
+  useEffect(() => {
+    if (extendedMode === 'regular') return undefined;
+    const id = setInterval(refreshAll, EXTENDED_WATCHLIST_POLL_MS);
+    return () => clearInterval(id);
+  }, [extendedMode, refreshAll]);
   const extMuted = isExtendedColumnMuted(extendedMode);
   const extLabel = extendedColumnLabel(extendedMode);
   const mrvlExt = pickExtendedQuote(mrvl, extendedMode);

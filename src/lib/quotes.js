@@ -49,7 +49,7 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   const meta = results[0].meta || {};
 
   const regularPrice = float(meta.regularMarketPrice);
-  const premarketPrice = float(meta.preMarketPrice);
+  let premarketPrice = float(meta.preMarketPrice);
   const previousClose = float(meta.chartPreviousClose) ?? float(meta.previousClose);
   let regularChangePct = deriveChangePct(regularPrice, previousClose);
   if (regularChangePct == null) {
@@ -65,10 +65,20 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   }
 
   const marketState = String(meta.marketState || '').trim().toUpperCase();
+  const currentPrice = float(meta.currentPrice);
   let postmarketPrice = float(meta.postMarketPrice);
   if (postmarketPrice == null && (marketState === 'POST' || marketState === 'POSTPOST')) {
-    const current = float(meta.currentPrice);
-    if (current != null && current !== regularPrice) postmarketPrice = current;
+    if (currentPrice != null && currentPrice !== regularPrice) postmarketPrice = currentPrice;
+  }
+  // Yahoo often keeps marketState REGULAR after the close while currentPrice tracks after-hours.
+  if (
+    postmarketPrice == null
+    && marketState === 'REGULAR'
+    && currentPrice != null
+    && regularPrice != null
+    && currentPrice !== regularPrice
+  ) {
+    postmarketPrice = currentPrice;
   }
   if (postmarketPrice == null && (marketState === 'POST' || marketState === 'POSTPOST' || marketState === 'CLOSED')) {
     const closes = results[0]?.indicators?.quote?.[0]?.close;
@@ -82,6 +92,28 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
       }
     }
   }
+  if (
+    premarketPrice == null
+    && (marketState === 'PRE' || marketState === 'PREPRE')
+    && currentPrice != null
+    && regularPrice != null
+    && currentPrice !== regularPrice
+  ) {
+    premarketPrice = currentPrice;
+    premarketChangePct = deriveChangePct(premarketPrice, regularPrice);
+  }
+  if (
+    premarketPrice == null
+    && marketState === 'REGULAR'
+    && currentPrice != null
+    && regularPrice != null
+    && currentPrice !== regularPrice
+    && postmarketPrice == null
+  ) {
+    premarketPrice = currentPrice;
+    premarketChangePct = deriveChangePct(premarketPrice, regularPrice);
+  }
+
   let postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
   if (postmarketChangePct == null) {
     postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
@@ -94,6 +126,7 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     exchange: meta.exchangeName || meta.fullExchangeName || '',
     regular_price: regularPrice,
     regular_change_pct: regularChangePct,
+    current_price: currentPrice,
     premarket_price: premarketPrice,
     premarket_change_pct: premarketChangePct,
     postmarket_price: postmarketPrice,
@@ -131,6 +164,7 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
           premarket_change_pct: quote.premarket_change_pct,
           postmarket_price: quote.postmarket_price,
           postmarket_change_pct: quote.postmarket_change_pct,
+          current_price: quote.current_price,
           market_state: quote.market_state,
           exchange: quote.exchange,
         };
@@ -157,31 +191,30 @@ export async function fetchMrvlQuote() {
 
 function normalizeUsdInrRate(quote) {
   const sym = String(quote.symbol || '').toUpperCase();
-  if (sym.includes('KRW') || sym.includes('JPY=X')) {
-    throw new Error(`Wrong FX symbol ${sym}`);
+  if (sym !== 'INR=X') {
+    throw new Error(`USD/INR must use INR=X (got ${sym || '?'})`);
+  }
+  const cur = String(quote.currency || '').toUpperCase();
+  if (cur === 'KRW' || cur === 'JPY') {
+    throw new Error(`Wrong FX currency ${cur} for INR=X`);
   }
   let rate = quote.regular_price;
   if (rate == null) throw new Error('USD/INR price missing');
   if (rate > 0 && rate < 2) rate = 1 / rate;
-  if (rate < 60 || rate > 130) throw new Error(`USD/INR out of range (${rate})`);
+  // Spot USD/INR ~76–92; ~95 is typically a wrong pair (e.g. KRW misread).
+  if (rate < 75 || rate > 92) {
+    throw new Error(`USD/INR out of range (${rate}) — expected INR=X spot`);
+  }
   return rate;
 }
 
 export async function fetchUsdInrRate({ signal } = {}) {
-  let lastErr;
-  for (const symbol of ['INR=X', 'USDINR=X']) {
-    try {
-      const q = await fetchYahooQuote(symbol, { signal });
-      const rate = normalizeUsdInrRate(q);
-      return {
-        pair: 'USD/INR',
-        rate,
-        change_pct: q.regular_change_pct,
-        fetched_at: Date.now(),
-      };
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error('USD/INR unavailable');
+  const q = await fetchYahooQuote('INR=X', { signal });
+  const rate = normalizeUsdInrRate(q);
+  return {
+    pair: 'USD/INR',
+    rate,
+    change_pct: q.regular_change_pct,
+    fetched_at: Date.now(),
+  };
 }
