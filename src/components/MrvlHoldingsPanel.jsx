@@ -1,11 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { formatStockPrice, formatInr } from '../lib/stockFormat';
-import {
-  loadMrvlCustomUsd,
-  loadMrvlShares,
-  saveMrvlCustomUsd,
-  saveMrvlShares,
-} from '../lib/holdingsStorage';
+import { loadMrvlCustomUsd, saveMrvlCustomUsd } from '../lib/holdingsStorage';
 
 const PRICE_DELTA_EPS = 0.005;
 
@@ -38,7 +33,7 @@ function formatSignedInr(amount) {
 
 export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrErr }) {
   const titleId = useId();
-  const [shares, setShares] = useState(() => loadMrvlShares());
+  const [shares, setShares] = useState('');
   const [customUsd, setCustomUsd] = useState(() => loadMrvlCustomUsd());
 
   useEffect(() => {
@@ -49,10 +44,6 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
-
-  useEffect(() => {
-    saveMrvlShares(shares);
-  }, [shares]);
 
   useEffect(() => {
     saveMrvlCustomUsd(customUsd);

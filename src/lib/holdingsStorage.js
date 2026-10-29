@@ -1,4 +1,4 @@
-const SHARES_KEY = 'stock-planner.mrvlShares';
+const LEGACY_SHARES_KEY = 'stock-planner.mrvlShares';
 const CUSTOM_USD_KEY = 'stock-planner.mrvlCustomUsd';
 
 function safeGet(key) {
@@ -18,12 +18,13 @@ function safeSet(key, value) {
   }
 }
 
-export function loadMrvlShares() {
-  return safeGet(SHARES_KEY) ?? '';
-}
-
-export function saveMrvlShares(value) {
-  safeSet(SHARES_KEY, value);
+/** One-time cleanup: shares are not persisted (sensitive). */
+export function clearLegacyMrvlSharesStorage() {
+  try {
+    localStorage.removeItem(LEGACY_SHARES_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function loadMrvlCustomUsd() {

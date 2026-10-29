@@ -16,6 +16,7 @@ import {
 import SemiconductorQuotesTable from './components/SemiconductorQuotesTable';
 import PriceChangeBadge from './components/PriceChangeBadge';
 import MrvlHoldingsPanel from './components/MrvlHoldingsPanel';
+import { clearLegacyMrvlSharesStorage } from './lib/holdingsStorage';
 
 const MRVL_POLL_MS = 60_000;
 const EXTENDED_WATCHLIST_POLL_MS = 60_000;
@@ -78,6 +79,10 @@ export default function App() {
     } catch (e) {
       setUsdInrErr(e.message || 'FX failed');
     }
+  }, []);
+
+  useEffect(() => {
+    clearLegacyMrvlSharesStorage();
   }, []);
 
   useEffect(() => {
