@@ -19,6 +19,23 @@ const CURRENCY_FRACTIONS = {
   JPY: 0,
 };
 
+/** Extended-hours cell for watchlist row (pre or after session). */
+export function pickExtendedQuote(it, mode) {
+  if (!it || mode === 'regular') return null;
+  if (mode === 'post') {
+    const price = it.postmarket_price;
+    let pct = it.postmarket_change_pct;
+    if (pct == null && price != null && it.regular_price != null) {
+      pct = preChangePctVsRegular(price, it.regular_price);
+    }
+    return { price, pct };
+  }
+  const price = it.premarket_price;
+  let pct = preChangePctVsRegular(price, it.regular_price);
+  if (pct == null) pct = it.premarket_change_pct;
+  return { price, pct };
+}
+
 export function formatStockPrice(price, currency = 'USD') {
   if (price == null || Number.isNaN(Number(price))) return '—';
   const cur = (currency || 'USD').toUpperCase();

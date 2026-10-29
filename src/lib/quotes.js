@@ -64,6 +64,12 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
   }
 
+  const postmarketPrice = float(meta.postMarketPrice);
+  let postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
+  if (postmarketChangePct == null) {
+    postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
+  }
+
   return {
     symbol: meta.symbol || sym,
     currency: meta.currency || (sym.endsWith('.KS') ? 'KRW' : 'USD'),
@@ -73,6 +79,8 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     regular_change_pct: regularChangePct,
     premarket_price: premarketPrice,
     premarket_change_pct: premarketChangePct,
+    postmarket_price: postmarketPrice,
+    postmarket_change_pct: postmarketChangePct,
     source: 'yahoo_finance',
   };
 }
@@ -104,6 +112,8 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
           regular_change_pct: quote.regular_change_pct,
           premarket_price: quote.premarket_price,
           premarket_change_pct: quote.premarket_change_pct,
+          postmarket_price: quote.postmarket_price,
+          postmarket_change_pct: quote.postmarket_change_pct,
           market_state: quote.market_state,
           exchange: quote.exchange,
         };
@@ -126,4 +136,14 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
 
 export async function fetchMrvlQuote() {
   return fetchYahooQuote('MRVL');
+}
+
+export async function fetchUsdInrRate({ signal } = {}) {
+  const q = await fetchYahooQuote('USDINR=X', { signal });
+  return {
+    pair: 'USD/INR',
+    rate: q.regular_price,
+    change_pct: q.regular_change_pct,
+    fetched_at: Date.now(),
+  };
 }

@@ -1,8 +1,19 @@
-import { formatStockPrice, preChangePctVsRegular } from '../lib/stockFormat';
+import { formatStockPrice, pickExtendedQuote } from '../lib/stockFormat';
+import {
+  extendedColumnLabel,
+  isExtendedColumnMuted,
+  resolveUsExtendedColumnMode,
+} from '../lib/stockMarketSession';
 import { exchangeHint } from '../data/watchlist';
 import PriceChangeBadge from './PriceChangeBadge';
 
-function QuoteRow({ it, preColumnMuted }) {
+function extendedColumnTitle(mode) {
+  if (mode === 'regular') return 'Extended hours hidden during US regular session';
+  if (mode === 'post') return 'After-hours vs regular close';
+  return 'Pre-market vs regular close';
+}
+
+function QuoteRow({ it, extendedMode }) {
   const rowMuted = it.status === 'pending';
   const rowErr = it.status === 'failed';
   const full = it.label || it.name;
@@ -12,6 +23,8 @@ function QuoteRow({ it, preColumnMuted }) {
   const symbol = String(it.name || ticker).trim();
   const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(`${symbol} stock`)}`;
   const market = exchangeHint(it.name);
+  const columnMuted = isExtendedColumnMuted(extendedMode);
+  const ext = pickExtendedQuote(it, extendedMode);
 
   return (
     <tr className="border-t border-slate-800/60">
@@ -51,20 +64,18 @@ function QuoteRow({ it, preColumnMuted }) {
       </td>
       <td
         className={`py-2 text-right text-sm whitespace-nowrap ${
-          rowMuted || preColumnMuted ? 'text-slate-600' : ''
+          rowMuted || columnMuted ? 'text-slate-600' : ''
         }`}
-        title={preColumnMuted ? 'Pre-market not shown during US regular session' : undefined}
+        title={extendedColumnTitle(extendedMode)}
       >
-        {rowErr || preColumnMuted ? (
+        {rowErr || columnMuted ? (
           <span className="text-slate-600 font-mono">—</span>
         ) : (
           <div className="flex flex-col items-end gap-0.5">
             <span className="font-mono tabular-nums text-violet-200 font-semibold text-xs sm:text-sm">
-              {formatStockPrice(it.premarket_price, it.currency)}
+              {formatStockPrice(ext?.price, it.currency)}
             </span>
-            <PriceChangeBadge
-              pct={preChangePctVsRegular(it.premarket_price, it.regular_price)}
-            />
+            <PriceChangeBadge pct={ext?.pct} />
           </div>
         )}
       </td>
@@ -79,12 +90,16 @@ function pinMrvlFirst(items) {
   return [...mrvl, ...rest];
 }
 
-export default function SemiconductorQuotesTable({ items, preColumnMuted = false }) {
+export default function SemiconductorQuotesTable({ items, extendedMode: extendedModeProp }) {
   if (!items.length) {
     return (
       <p className="text-sm text-slate-500 py-8 text-center">Tap Refresh to load quotes.</p>
     );
   }
+
+  const extendedMode = extendedModeProp ?? resolveUsExtendedColumnMode(items);
+  const columnMuted = isExtendedColumnMuted(extendedMode);
+  const extLabel = extendedColumnLabel(extendedMode);
 
   const ordered = pinMrvlFirst(items);
   const mid = Math.ceil(ordered.length / 2);
@@ -98,10 +113,11 @@ export default function SemiconductorQuotesTable({ items, preColumnMuted = false
         <th className="font-semibold pb-2 text-right w-28 sm:w-36">Current</th>
         <th
           className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
-            preColumnMuted ? 'text-slate-600' : ''
+            columnMuted ? 'text-slate-600' : ''
           }`}
+          title={extendedColumnTitle(extendedMode)}
         >
-          Pre
+          {extLabel}
         </th>
       </tr>
     </thead>
@@ -114,7 +130,7 @@ export default function SemiconductorQuotesTable({ items, preColumnMuted = false
           {tableHead}
           <tbody>
             {left.map((it) => (
-              <QuoteRow key={it.name} it={it} preColumnMuted={preColumnMuted} />
+              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} />
             ))}
           </tbody>
         </table>
@@ -124,7 +140,7 @@ export default function SemiconductorQuotesTable({ items, preColumnMuted = false
           {tableHead}
           <tbody>
             {right.map((it) => (
-              <QuoteRow key={it.name} it={it} preColumnMuted={preColumnMuted} />
+              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} />
             ))}
           </tbody>
         </table>

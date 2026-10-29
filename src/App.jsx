@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SEMICON_WATCHLIST } from './data/watchlist';
-import { fetchMrvlQuote, fetchWatchlistQuotes } from './lib/quotes';
-import { formatStockPrice, preChangePctVsRegular } from './lib/stockFormat';
-import { shouldMutePreMarketColumn } from './lib/stockMarketSession';
+import { fetchMrvlQuote, fetchUsdInrRate, fetchWatchlistQuotes } from './lib/quotes';
+import { formatStockPrice, pickExtendedQuote } from './lib/stockFormat';
+import {
+  extendedColumnLabel,
+  isExtendedColumnMuted,
+  resolveUsExtendedColumnMode,
+} from './lib/stockMarketSession';
 import {
   getDesktopNotificationsEnabled,
   notifyStockMoveIfNeeded,
@@ -14,12 +18,15 @@ import PriceChangeBadge from './components/PriceChangeBadge';
 
 const MRVL_POLL_MS = 60_000;
 const WATCHLIST_POLL_MS = 5 * 60_000;
+const USD_INR_POLL_MS = 5 * 60_000;
 
 export default function App() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mrvl, setMrvl] = useState(null);
   const [mrvlErr, setMrvlErr] = useState('');
+  const [usdInr, setUsdInr] = useState(null);
+  const [usdInrErr, setUsdInrErr] = useState('');
   const [notifyOn, setNotifyOn] = useState(() => getDesktopNotificationsEnabled());
   const [lastRefresh, setLastRefresh] = useState(null);
 
@@ -60,10 +67,21 @@ export default function App() {
     }
   }, [notifyOn]);
 
+  const refreshUsdInr = useCallback(async () => {
+    try {
+      const fx = await fetchUsdInrRate();
+      setUsdInr(fx);
+      setUsdInrErr('');
+    } catch (e) {
+      setUsdInrErr(e.message || 'FX failed');
+    }
+  }, []);
+
   useEffect(() => {
     refreshAll();
     refreshMrvl();
-  }, [refreshAll, refreshMrvl]);
+    refreshUsdInr();
+  }, [refreshAll, refreshMrvl, refreshUsdInr]);
 
   useEffect(() => {
     const id = setInterval(refreshMrvl, MRVL_POLL_MS);
@@ -71,12 +89,23 @@ export default function App() {
   }, [refreshMrvl]);
 
   useEffect(() => {
+    const id = setInterval(refreshUsdInr, USD_INR_POLL_MS);
+    return () => clearInterval(id);
+  }, [refreshUsdInr]);
+
+  useEffect(() => {
     if (!notifyOn) return undefined;
     const id = setInterval(refreshAll, WATCHLIST_POLL_MS);
     return () => clearInterval(id);
   }, [notifyOn, refreshAll]);
 
-  const preMuted = shouldMutePreMarketColumn(items.length ? items : mrvl?.market_state);
+  const extendedMode = resolveUsExtendedColumnMode(items.length ? items : mrvl?.market_state);
+  const extMuted = isExtendedColumnMuted(extendedMode);
+  const extLabel = extendedColumnLabel(extendedMode);
+  const mrvlExt = pickExtendedQuote(mrvl, extendedMode);
+  const fxTime = usdInr?.fetched_at
+    ? new Date(usdInr.fetched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
   const doneCount = items.filter((i) => i.status === 'done' || i.status === 'failed').length;
 
   async function toggleNotify() {
@@ -100,7 +129,19 @@ export default function App() {
             Yahoo Finance · MRVL ±5% · watchlist ±10% · Samsung/Hynix = KRX (KRW)
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <span
+            className="text-xs px-2.5 py-2 rounded-lg bg-slate-950/70 border border-slate-600/50 text-slate-300 tabular-nums"
+            title={usdInrErr || `USD/INR spot${fxTime ? ` · ${fxTime}` : ''}`}
+          >
+            <span className="text-[10px] text-slate-500 uppercase tracking-wide mr-1">USD/INR</span>
+            <span className="font-mono font-semibold">
+              {usdInr?.rate != null ? Number(usdInr.rate).toFixed(2) : usdInrErr ? '—' : '…'}
+            </span>
+            {fxTime && (
+              <span className="text-[10px] text-slate-600 ml-1 hidden sm:inline">{fxTime}</span>
+            )}
+          </span>
           <button
             type="button"
             onClick={refreshAll}
@@ -136,16 +177,13 @@ export default function App() {
               </span>
               <PriceChangeBadge pct={mrvl.regular_change_pct} className="ml-2" />
             </div>
-            {!preMuted && mrvl.premarket_price != null && (
+            {!extMuted && mrvlExt?.price != null && (
               <div>
-                <span className="text-xs text-slate-500 block">Pre</span>
+                <span className="text-xs text-slate-500 block">{extLabel}</span>
                 <span className="font-mono text-violet-200 font-semibold tabular-nums">
-                  {formatStockPrice(mrvl.premarket_price, mrvl.currency)}
+                  {formatStockPrice(mrvlExt.price, mrvl.currency)}
                 </span>
-                <PriceChangeBadge
-                  pct={preChangePctVsRegular(mrvl.premarket_price, mrvl.regular_price)}
-                  className="ml-2"
-                />
+                <PriceChangeBadge pct={mrvlExt.pct} className="ml-2" />
               </div>
             )}
           </div>
@@ -167,7 +205,7 @@ export default function App() {
           </span>
         </div>
         <div className="px-2 sm:px-4 py-3">
-          <SemiconductorQuotesTable items={items} preColumnMuted={preMuted} />
+          <SemiconductorQuotesTable items={items} extendedMode={extendedMode} />
         </div>
       </section>
 

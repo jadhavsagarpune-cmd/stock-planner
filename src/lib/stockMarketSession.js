@@ -1,4 +1,4 @@
-/** When true, extended-hours Pre column is stale — grey out in watchlist UI. */
+/** US session helpers for extended-hours (pre / after) watchlist column. */
 
 const REGULAR_STATES = new Set(['REGULAR']);
 
@@ -28,27 +28,67 @@ export function isUsRegularSessionByClock(now = new Date()) {
   return minutes >= open && minutes < close;
 }
 
-export function isRegularMarketLive(marketState) {
-  const s = String(marketState || '').trim().toUpperCase();
-  if (REGULAR_STATES.has(s)) return true;
-  if (s === 'PRE' || s === 'PREPRE' || s === 'POST' || s === 'POSTPOST' || s === 'CLOSED') {
-    return false;
-  }
-  return isUsRegularSessionByClock();
+export function normalizeMarketState(state) {
+  const s = String(state || '').trim().toUpperCase();
+  if (s === 'PREPRE') return 'PRE';
+  if (s === 'POSTPOST') return 'POST';
+  return s || null;
 }
 
-/** Grey Pre column when regular session is live (per quote or watchlist aggregate). */
-export function shouldMutePreMarketColumn(itemsOrState) {
+function isUsListedSymbol(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  return sym.length > 0 && !sym.endsWith('.KS');
+}
+
+/** When Yahoo reports CLOSED, pick pre vs after from US equity calendar. */
+export function closedExtendedModeByClock(now = new Date()) {
+  const { dow, minutes } = easternParts(now);
+  if (dow === 0 || dow === 6) return 'post';
+  const open = 9 * 60 + 30;
+  const close = 16 * 60;
+  if (minutes < open) return 'pre';
+  if (minutes >= close) return 'post';
+  return 'regular';
+}
+
+/**
+ * Extended column mode for US watchlist: regular (hide/mute), pre, or post.
+ * Uses quote marketState when present; clock fallback for Google (empty state) and CLOSED.
+ */
+export function resolveUsExtendedColumnMode(itemsOrState, now = new Date()) {
+  let states = [];
   if (typeof itemsOrState === 'string' || itemsOrState == null) {
-    return isRegularMarketLive(itemsOrState);
-  }
-  if (Array.isArray(itemsOrState)) {
-    const states = itemsOrState
-      .map((it) => String(it.market_state || '').trim().toUpperCase())
+    const n = normalizeMarketState(itemsOrState);
+    if (n) states = [n];
+  } else if (Array.isArray(itemsOrState)) {
+    states = itemsOrState
+      .filter((it) => it?.status !== 'failed' && isUsListedSymbol(it.name))
+      .map((it) => normalizeMarketState(it.market_state))
       .filter(Boolean);
-    if (states.some((s) => REGULAR_STATES.has(s))) return true;
-    if (states.some((s) => s === 'PRE' || s === 'PREPRE')) return false;
-    if (states.some((s) => s === 'POST' || s === 'POSTPOST')) return false;
   }
-  return isUsRegularSessionByClock();
+
+  if (states.some((s) => REGULAR_STATES.has(s))) return 'regular';
+  if (states.some((s) => s === 'PRE')) return 'pre';
+  if (states.some((s) => s === 'POST')) return 'post';
+  if (states.some((s) => s === 'CLOSED')) return closedExtendedModeByClock(now);
+
+  if (isUsRegularSessionByClock(now)) return 'regular';
+  return closedExtendedModeByClock(now);
+}
+
+export function extendedColumnLabel(mode) {
+  return mode === 'post' ? 'After hrs' : 'Pre';
+}
+
+export function isExtendedColumnMuted(mode) {
+  return mode === 'regular';
+}
+
+export function isRegularMarketLive(marketState) {
+  return resolveUsExtendedColumnMode(marketState) === 'regular';
+}
+
+/** @deprecated use resolveUsExtendedColumnMode + isExtendedColumnMuted */
+export function shouldMutePreMarketColumn(itemsOrState) {
+  return isExtendedColumnMuted(resolveUsExtendedColumnMode(itemsOrState));
 }
