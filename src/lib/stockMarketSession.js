@@ -1,7 +1,5 @@
 /** US session helpers for extended-hours (pre / after) watchlist column. */
 
-const REGULAR_STATES = new Set(['REGULAR']);
-
 function easternParts(date) {
   const fmt = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/New_York',
@@ -35,11 +33,6 @@ export function normalizeMarketState(state) {
   return s || null;
 }
 
-function isUsListedSymbol(symbol) {
-  const sym = String(symbol || '').trim().toUpperCase();
-  return sym.length > 0 && !sym.endsWith('.KS');
-}
-
 /** When Yahoo reports CLOSED, pick pre vs after from US equity calendar. */
 export function closedExtendedModeByClock(now = new Date()) {
   const { dow, minutes } = easternParts(now);
@@ -56,24 +49,26 @@ export function closedExtendedModeByClock(now = new Date()) {
  * Uses quote marketState when present; clock fallback for Google (empty state) and CLOSED.
  */
 export function resolveUsExtendedColumnMode(itemsOrState, now = new Date()) {
-  let states = [];
+  const clockRegular = isUsRegularSessionByClock(now);
+  const clockExt = closedExtendedModeByClock(now);
+
   if (typeof itemsOrState === 'string' || itemsOrState == null) {
     const n = normalizeMarketState(itemsOrState);
-    if (n) states = [n];
-  } else if (Array.isArray(itemsOrState)) {
-    states = itemsOrState
-      .filter((it) => it?.status !== 'failed' && isUsListedSymbol(it.name))
-      .map((it) => normalizeMarketState(it.market_state))
-      .filter(Boolean);
+    if (clockRegular) return 'regular';
+    if (n === 'POST') return 'post';
+    if (n === 'PRE') return 'pre';
+    if (n === 'REGULAR') return clockExt;
+    if (n === 'CLOSED') return clockExt;
+    return clockExt;
   }
 
-  if (states.some((s) => REGULAR_STATES.has(s))) return 'regular';
-  if (states.some((s) => s === 'PRE')) return 'pre';
-  if (states.some((s) => s === 'POST')) return 'post';
-  if (states.some((s) => s === 'CLOSED')) return closedExtendedModeByClock(now);
+  if (Array.isArray(itemsOrState)) {
+    if (clockRegular) return 'regular';
+    // Off regular hours, US clock beats stale Yahoo REGULAR/PRE on the aggregate.
+    return clockExt;
+  }
 
-  if (isUsRegularSessionByClock(now)) return 'regular';
-  return closedExtendedModeByClock(now);
+  return clockRegular ? 'regular' : clockExt;
 }
 
 export function extendedColumnLabel(mode) {

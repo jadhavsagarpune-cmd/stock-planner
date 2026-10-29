@@ -64,7 +64,24 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
   }
 
-  const postmarketPrice = float(meta.postMarketPrice);
+  const marketState = String(meta.marketState || '').trim().toUpperCase();
+  let postmarketPrice = float(meta.postMarketPrice);
+  if (postmarketPrice == null && (marketState === 'POST' || marketState === 'POSTPOST')) {
+    const current = float(meta.currentPrice);
+    if (current != null && current !== regularPrice) postmarketPrice = current;
+  }
+  if (postmarketPrice == null && (marketState === 'POST' || marketState === 'POSTPOST' || marketState === 'CLOSED')) {
+    const closes = results[0]?.indicators?.quote?.[0]?.close;
+    if (Array.isArray(closes)) {
+      for (let i = closes.length - 1; i >= 0; i -= 1) {
+        const c = float(closes[i]);
+        if (c != null && c !== regularPrice) {
+          postmarketPrice = c;
+          break;
+        }
+      }
+    }
+  }
   let postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
   if (postmarketChangePct == null) {
     postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
@@ -138,12 +155,33 @@ export async function fetchMrvlQuote() {
   return fetchYahooQuote('MRVL');
 }
 
+function normalizeUsdInrRate(quote) {
+  const sym = String(quote.symbol || '').toUpperCase();
+  if (sym.includes('KRW') || sym.includes('JPY=X')) {
+    throw new Error(`Wrong FX symbol ${sym}`);
+  }
+  let rate = quote.regular_price;
+  if (rate == null) throw new Error('USD/INR price missing');
+  if (rate > 0 && rate < 2) rate = 1 / rate;
+  if (rate < 60 || rate > 130) throw new Error(`USD/INR out of range (${rate})`);
+  return rate;
+}
+
 export async function fetchUsdInrRate({ signal } = {}) {
-  const q = await fetchYahooQuote('USDINR=X', { signal });
-  return {
-    pair: 'USD/INR',
-    rate: q.regular_price,
-    change_pct: q.regular_change_pct,
-    fetched_at: Date.now(),
-  };
+  let lastErr;
+  for (const symbol of ['INR=X', 'USDINR=X']) {
+    try {
+      const q = await fetchYahooQuote(symbol, { signal });
+      const rate = normalizeUsdInrRate(q);
+      return {
+        pair: 'USD/INR',
+        rate,
+        change_pct: q.regular_change_pct,
+        fetched_at: Date.now(),
+      };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('USD/INR unavailable');
 }

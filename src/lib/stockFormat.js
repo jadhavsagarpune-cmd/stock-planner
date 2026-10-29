@@ -23,7 +23,7 @@ const CURRENCY_FRACTIONS = {
 export function pickExtendedQuote(it, mode) {
   if (!it || mode === 'regular') return null;
   if (mode === 'post') {
-    const price = it.postmarket_price;
+    const price = it.postmarket_price ?? it.premarket_price;
     let pct = it.postmarket_change_pct;
     if (pct == null && price != null && it.regular_price != null) {
       pct = preChangePctVsRegular(price, it.regular_price);
