@@ -5,7 +5,7 @@ import {
   resolveUsExtendedColumnMode,
 } from '../lib/stockMarketSession';
 import { exchangeHint } from '../data/watchlist';
-import PriceChangeBadge from './PriceChangeBadge';
+import StockPriceChangeLines from './StockPriceChangeLines';
 
 function extendedColumnTitle(mode) {
   if (mode === 'regular') return 'Extended hours hidden during US regular session';
@@ -68,7 +68,13 @@ function QuoteRow({ it, extendedMode, fxRate }) {
                 <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
               )}
             </span>
-            <PriceChangeBadge pct={it.regular_change_pct} />
+            <StockPriceChangeLines
+              quote={it}
+              pct={it.regular_change_pct}
+              currency={it.currency}
+              fxRate={fxRate}
+              showInrChange={isMrvl}
+            />
           </div>
         )}
       </td>
@@ -88,7 +94,13 @@ function QuoteRow({ it, extendedMode, fxRate }) {
                 <span className="text-violet-300/80 font-normal ml-1">({extInrHint})</span>
               )}
             </span>
-            <PriceChangeBadge pct={ext?.pct} />
+            <StockPriceChangeLines
+              pct={ext?.pct}
+              changeAbs={ext?.abs}
+              currency={it.currency}
+              fxRate={fxRate}
+              showInrChange={isMrvl}
+            />
           </div>
         )}
       </td>

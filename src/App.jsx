@@ -14,7 +14,7 @@ import {
   setDesktopNotificationsEnabled,
 } from './lib/stockPriceAlerts';
 import SemiconductorQuotesTable from './components/SemiconductorQuotesTable';
-import PriceChangeBadge from './components/PriceChangeBadge';
+import StockPriceChangeLines from './components/StockPriceChangeLines';
 import MrvlHoldingsPanel from './components/MrvlHoldingsPanel';
 import { clearLegacyMrvlSharesStorage } from './lib/holdingsStorage';
 
@@ -201,28 +201,46 @@ export default function App() {
           <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
             <div>
               <span className="text-xs text-slate-500 block">Current</span>
-              <span className="font-mono text-lg font-semibold tabular-nums">
-                {formatStockPrice(mrvl.regular_price, mrvl.currency)}
-                {mrvlInrHint && (
-                  <span className="text-sm font-normal text-violet-300/90 ml-1.5">
-                    ({mrvlInrHint})
-                  </span>
-                )}
-              </span>
-              <PriceChangeBadge pct={mrvl.regular_change_pct} className="ml-2" />
+              <div className="flex flex-col items-start gap-0.5">
+                <span className="font-mono text-lg font-semibold tabular-nums">
+                  {formatStockPrice(mrvl.regular_price, mrvl.currency)}
+                  {mrvlInrHint && (
+                    <span className="text-sm font-normal text-violet-300/90 ml-1.5">
+                      ({mrvlInrHint})
+                    </span>
+                  )}
+                </span>
+                <StockPriceChangeLines
+                  quote={mrvl}
+                  pct={mrvl.regular_change_pct}
+                  currency={mrvl.currency}
+                  fxRate={fxRate}
+                  showInrChange
+                  className="!items-start"
+                />
+              </div>
             </div>
             {!extMuted && mrvlExt?.price != null && (
               <div>
                 <span className="text-xs text-slate-500 block">{extLabel}</span>
-                <span className="font-mono text-violet-200 font-semibold tabular-nums">
-                  {formatStockPrice(mrvlExt.price, mrvl.currency)}
-                  {mrvlExtInrHint && (
-                    <span className="text-sm font-normal text-violet-300/80 ml-1.5">
-                      ({mrvlExtInrHint})
-                    </span>
-                  )}
-                </span>
-                <PriceChangeBadge pct={mrvlExt.pct} className="ml-2" />
+                <div className="flex flex-col items-start gap-0.5">
+                  <span className="font-mono text-violet-200 font-semibold tabular-nums">
+                    {formatStockPrice(mrvlExt.price, mrvl.currency)}
+                    {mrvlExtInrHint && (
+                      <span className="text-sm font-normal text-violet-300/80 ml-1.5">
+                        ({mrvlExtInrHint})
+                      </span>
+                    )}
+                  </span>
+                  <StockPriceChangeLines
+                    pct={mrvlExt.pct}
+                    changeAbs={mrvlExt.abs}
+                    currency={mrvl.currency}
+                    fxRate={fxRate}
+                    showInrChange
+                    className="!items-start"
+                  />
+                </div>
               </div>
             )}
           </div>

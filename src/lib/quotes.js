@@ -31,6 +31,33 @@ function deriveChangePct(price, base) {
   return ((price - base) / base) * 100;
 }
 
+/** Align absolute change sign with derived percentage. */
+function alignChangeAbsWithPct(changeAbs, changePct) {
+  if (changeAbs == null || changePct == null) return changeAbs;
+  const abs = Number(changeAbs);
+  const pct = Number(changePct);
+  if (!Number.isFinite(abs) || !Number.isFinite(pct)) return changeAbs;
+  if (pct === 0) return 0;
+  if (pct > 0 && abs < 0) return Math.abs(abs);
+  if (pct < 0 && abs > 0) return -Math.abs(abs);
+  return abs;
+}
+
+function deriveRegularChangeAbs(regularPrice, previousClose, regularChangePct, metaChange) {
+  let abs = float(metaChange);
+  if (abs == null && regularPrice != null && previousClose != null) {
+    abs = regularPrice - previousClose;
+  }
+  if (abs == null && regularChangePct != null && previousClose != null) {
+    abs = (regularChangePct / 100) * previousClose;
+  }
+  if (abs == null && regularChangePct != null && regularPrice != null && previousClose == null) {
+    const prior = regularPrice / (1 + regularChangePct / 100);
+    if (Number.isFinite(prior)) abs = regularPrice - prior;
+  }
+  return alignChangeAbsWithPct(abs, regularChangePct);
+}
+
 /**
  * Yahoo chart quote (same shape as ILM backend stock_quote.fetch_yahoo_quote).
  * Dev: direct Yahoo. Production: /api/quote serverless proxy on Vercel.
@@ -133,12 +160,21 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
   }
 
+  const regularChangeAbs = deriveRegularChangeAbs(
+    regularPrice,
+    previousClose,
+    regularChangePct,
+    meta.regularMarketChange,
+  );
+
   return {
     symbol: meta.symbol || sym,
     currency: meta.currency || (sym.endsWith('.KS') ? 'KRW' : 'USD'),
     market_state: meta.marketState || '',
     exchange: meta.exchangeName || meta.fullExchangeName || '',
+    previous_close: previousClose,
     regular_price: regularPrice,
+    regular_change_abs: regularChangeAbs,
     regular_change_pct: regularChangePct,
     current_price: currentPrice,
     premarket_price: premarketPrice,
@@ -173,7 +209,9 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
           label,
           status: 'done',
           currency: quote.currency,
+          previous_close: quote.previous_close,
           regular_price: quote.regular_price,
+          regular_change_abs: quote.regular_change_abs,
           regular_change_pct: quote.regular_change_pct,
           premarket_price: quote.premarket_price,
           premarket_change_pct: quote.premarket_change_pct,
