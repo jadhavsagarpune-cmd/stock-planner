@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ALL_WATCHLIST_ENTRIES } from './data/watchlist';
 import { fetchMrvlQuote, fetchUsdInrRate, fetchWatchlistQuotes } from './lib/quotes';
+import { fetchEtfBenchmarks } from './lib/etfBenchmarks';
+import { downloadWatchlistCsv } from './lib/exportWatchlistCsv';
 import { formatMrvlInrHint, formatStockPrice, pickExtendedQuote } from './lib/stockFormat';
 import {
   extendedColumnLabel,
@@ -14,6 +16,7 @@ import {
   setDesktopNotificationsEnabled,
 } from './lib/stockPriceAlerts';
 import WatchlistSections from './components/WatchlistSections';
+import SectorHeatmap from './components/SectorHeatmap';
 import StockPriceChangeLines from './components/StockPriceChangeLines';
 import MrvlHoldingsPanel from './components/MrvlHoldingsPanel';
 import { clearLegacyMrvlSharesStorage } from './lib/holdingsStorage';
@@ -33,11 +36,16 @@ export default function App() {
   const [notifyOn, setNotifyOn] = useState(() => getDesktopNotificationsEnabled());
   const [lastRefresh, setLastRefresh] = useState(null);
   const [holdingsOpen, setHoldingsOpen] = useState(false);
+  const [etfBenchmarks, setEtfBenchmarks] = useState(null);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await fetchWatchlistQuotes(ALL_WATCHLIST_ENTRIES, setItems);
+      const [list, etfs] = await Promise.all([
+        fetchWatchlistQuotes(ALL_WATCHLIST_ENTRIES, setItems),
+        fetchEtfBenchmarks(),
+      ]);
+      setEtfBenchmarks(etfs);
       setLastRefresh(new Date());
       if (notifyOn) {
         for (const it of list) {
@@ -173,6 +181,15 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => downloadWatchlistCsv(items)}
+            disabled={!items.length || loading}
+            className="text-xs px-3 py-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-600 disabled:opacity-50"
+            title="Download CSV of quotes and section summaries"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
             onClick={refreshAll}
             disabled={loading}
             className="text-xs px-3 py-2 rounded-lg bg-violet-600/30 text-violet-100 border border-violet-500/40 disabled:opacity-50"
@@ -249,6 +266,10 @@ export default function App() {
         )}
       </section>
 
+      <div className="mb-4">
+        <SectorHeatmap items={items} />
+      </div>
+
       <section className="rounded-xl border border-slate-700 bg-slate-900/80 overflow-hidden">
         <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-slate-800">
           <span className="text-sm font-medium text-slate-200">Watchlists</span>
@@ -262,7 +283,12 @@ export default function App() {
           </span>
         </div>
         <div className="px-2 sm:px-4 py-3">
-          <WatchlistSections items={items} extendedMode={extendedMode} usdInr={usdInr} />
+          <WatchlistSections
+            items={items}
+            extendedMode={extendedMode}
+            usdInr={usdInr}
+            etfBenchmarks={etfBenchmarks}
+          />
         </div>
       </section>
 

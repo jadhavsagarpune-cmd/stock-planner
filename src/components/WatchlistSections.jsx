@@ -16,6 +16,7 @@ import {
   sortWatchlistItems,
   topMoversByRegularPct,
 } from '../lib/watchlistAnalytics';
+import { ETF_BENCHMARKS, etfPctColorClass, formatEtfChipPct } from '../lib/etfBenchmarks';
 import StockPriceChangeLines from './StockPriceChangeLines';
 
 function extendedColumnTitle(mode) {
@@ -143,6 +144,32 @@ function MoverChip({ label, it, tone }) {
   );
 }
 
+function EtfBenchmarkChips({ etfBenchmarks }) {
+  if (!etfBenchmarks) return null;
+  return (
+    <>
+      <span className="text-slate-600 hidden sm:inline">·</span>
+      <span className="text-slate-500 text-[10px] uppercase tracking-wide">ETFs</span>
+      {ETF_BENCHMARKS.map(({ symbol, label }) => {
+        const row = etfBenchmarks[symbol];
+        const pct = row?.regular_change_pct;
+        return (
+          <span
+            key={symbol}
+            className="inline-flex items-center gap-1 text-[10px] tabular-nums px-1.5 py-0.5 rounded border border-slate-700/80 bg-slate-950/60"
+            title={`${label} session change`}
+          >
+            <span className="font-mono text-slate-400">{label}</span>
+            <span className={`font-semibold ${etfPctColorClass(pct)}`}>
+              {formatEtfChipPct(pct)}
+            </span>
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 function SectionBlock({
   section,
   itemsBySymbol,
@@ -153,6 +180,7 @@ function SectionBlock({
   collapsed,
   onToggleCollapse,
   onSectionSortChange,
+  etfBenchmarks,
 }) {
   const sectionItems = useMemo(() => {
     const rows = section.entries.map(([label, symbol]) => {
@@ -237,6 +265,7 @@ function SectionBlock({
             <span className="text-slate-600 hidden sm:inline">·</span>
             <MoverChip label="Top" it={movers.gainer} tone="up" />
             <MoverChip label="Low" it={movers.loser} tone="down" />
+            <EtfBenchmarkChips etfBenchmarks={etfBenchmarks} />
           </div>
         )}
       </div>
@@ -276,11 +305,15 @@ function SectionBlock({
   );
 }
 
-export default function WatchlistSections({ items, extendedMode, usdInr }) {
+export default function WatchlistSections({ items, extendedMode, usdInr, etfBenchmarks }) {
   const [globalSort, setGlobalSort] = useState('default');
   const [sectionSortOverrides, setSectionSortOverrides] = useState({});
   const [compact, setCompact] = useState(false);
   const [collapsed, setCollapsed] = useState({});
+  const showExtendedSortHint =
+    extendedMode !== 'regular'
+    && globalSort === 'default'
+    && Object.keys(sectionSortOverrides).length === 0;
 
   const itemsBySymbol = useMemo(() => {
     const map = new Map();
@@ -304,6 +337,27 @@ export default function WatchlistSections({ items, extendedMode, usdInr }) {
 
   return (
     <div className="space-y-4">
+      {showExtendedSortHint && (
+        <p className="text-[11px] text-violet-200/90 bg-violet-950/30 border border-violet-500/25 rounded-lg px-3 py-2 leading-snug">
+          US pre/post session — extended hours are live. Sort by{' '}
+          <button
+            type="button"
+            className="underline text-violet-100 font-semibold cursor-pointer"
+            onClick={() => setGlobalSort('ext_desc')}
+          >
+            Pre/after ↓
+          </button>{' '}
+          or{' '}
+          <button
+            type="button"
+            className="underline text-violet-100 font-semibold cursor-pointer"
+            onClick={() => setGlobalSort('ext_asc')}
+          >
+            Pre/after ↑
+          </button>{' '}
+          to rank extended movers.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <p
           className="text-[11px] text-slate-500 leading-snug max-w-xl"
@@ -320,7 +374,11 @@ export default function WatchlistSections({ items, extendedMode, usdInr }) {
                 setGlobalSort(e.target.value);
                 setSectionSortOverrides({});
               }}
-              className="text-[11px] bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-slate-300"
+              className={`text-[11px] bg-slate-950 border rounded-md px-2 py-1 text-slate-300 ${
+                showExtendedSortHint
+                  ? 'border-violet-500/50 ring-1 ring-violet-500/30'
+                  : 'border-slate-700'
+              }`}
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -359,6 +417,7 @@ export default function WatchlistSections({ items, extendedMode, usdInr }) {
           onSectionSortChange={(value) =>
             setSectionSortOverrides((prev) => ({ ...prev, [section.id]: value }))
           }
+          etfBenchmarks={etfBenchmarks}
         />
       ))}
     </div>
