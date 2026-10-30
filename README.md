@@ -1,6 +1,6 @@
-# Semiconductor Stock Planner
+# Stock Planner
 
-Standalone mobile-friendly watchlist extracted from ILM’s stock UI. Same 24-symbol semiconductor list, MRVL header, pre-market column rules, and move alerts (MRVL ±5%, others ±10%).
+Standalone mobile-friendly watchlist extracted from ILM’s stock UI. **Grouped sections** (semiconductors, hyperscalers, big tech), MRVL hero with INR holdings, extended-hours column rules, per-section top movers and sort, and move alerts (MRVL ±5%, others ±10%). Future ideas: [IMPROVEMENTS.md](./IMPROVEMENTS.md).
 
 ## Data source
 
@@ -88,13 +88,22 @@ stock-planner/
     App.jsx
     main.jsx
     index.css
-    data/watchlist.js
+    data/watchlist.js          # WATCHLIST_SECTIONS + semicon list
     lib/quotes.js
+    lib/watchlistAnalytics.js
     lib/stockFormat.js
     lib/stockMarketSession.js
     lib/stockPriceAlerts.js
-    components/SemiconductorQuotesTable.jsx
-    components/PriceChangeBadge.jsx
+    components/WatchlistSections.jsx
+    components/SemiconductorQuotesTable.jsx  # legacy flat layout
+    components/StockPriceChangeLines.jsx
 ```
+
+### UI tips
+
+- **Sections** collapse with the chevron; headers stay sticky while scrolling within the watchlist card.
+- **Sort:** “All sections” dropdown sets every group; each section can override with its own sort (Current or Pre/after, ↑/↓).
+- **Compact** hides exchange sublabels for denser rows on phones.
+- **MRVL-only:** INR price hints on rows and the holdings panel; other symbols stay USD/KRW only.
 
 No changes to ILM backend or lab flash code.

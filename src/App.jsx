@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { SEMICON_WATCHLIST } from './data/watchlist';
+import { ALL_WATCHLIST_ENTRIES } from './data/watchlist';
 import { fetchMrvlQuote, fetchUsdInrRate, fetchWatchlistQuotes } from './lib/quotes';
 import { formatMrvlInrHint, formatStockPrice, pickExtendedQuote } from './lib/stockFormat';
 import {
@@ -13,7 +13,7 @@ import {
   requestNotificationPermission,
   setDesktopNotificationsEnabled,
 } from './lib/stockPriceAlerts';
-import SemiconductorQuotesTable from './components/SemiconductorQuotesTable';
+import WatchlistSections from './components/WatchlistSections';
 import StockPriceChangeLines from './components/StockPriceChangeLines';
 import MrvlHoldingsPanel from './components/MrvlHoldingsPanel';
 import { clearLegacyMrvlSharesStorage } from './lib/holdingsStorage';
@@ -37,7 +37,7 @@ export default function App() {
   const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await fetchWatchlistQuotes(SEMICON_WATCHLIST, setItems);
+      const list = await fetchWatchlistQuotes(ALL_WATCHLIST_ENTRIES, setItems);
       setLastRefresh(new Date());
       if (notifyOn) {
         for (const it of list) {
@@ -145,9 +145,9 @@ export default function App() {
     <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-8 safe-area-pb">
       <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-lg sm:text-xl font-semibold text-white">Semiconductor planner</h1>
+          <h1 className="text-lg sm:text-xl font-semibold text-white">Stock planner</h1>
           <p className="text-xs text-slate-500 mt-1">
-            Yahoo Finance · MRVL ±5% · watchlist ±10% · Samsung/Hynix = KRX (KRW)
+            Yahoo Finance · semicon + cloud + big tech · MRVL ±5% · others ±10% · KRX in KRW
           </p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -251,9 +251,9 @@ export default function App() {
 
       <section className="rounded-xl border border-slate-700 bg-slate-900/80 overflow-hidden">
         <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-slate-800">
-          <span className="text-sm font-medium text-slate-200">Watchlist</span>
+          <span className="text-sm font-medium text-slate-200">Watchlists</span>
           <span className="text-xs text-slate-500 tabular-nums">
-            {doneCount}/{items.length || SEMICON_WATCHLIST.length}
+            {doneCount}/{items.length || ALL_WATCHLIST_ENTRIES.length}
             {lastRefresh && (
               <span className="hidden sm:inline ml-2">
                 · {lastRefresh.toLocaleTimeString()}
@@ -262,7 +262,7 @@ export default function App() {
           </span>
         </div>
         <div className="px-2 sm:px-4 py-3">
-          <SemiconductorQuotesTable items={items} extendedMode={extendedMode} usdInr={usdInr} />
+          <WatchlistSections items={items} extendedMode={extendedMode} usdInr={usdInr} />
         </div>
       </section>
 
