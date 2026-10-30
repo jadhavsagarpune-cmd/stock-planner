@@ -63,6 +63,24 @@ export const WATCHLIST_SECTIONS = [
       ['PayPal (PYPL)', 'PYPL'],
     ],
   },
+  {
+    id: 'mrvl_customers',
+    title: 'Marvell customers & ecosystem',
+    hint: 'OEM, networking, storage & enterprise infra — Marvell silicon buyers/partners',
+    entries: [
+      ['Cisco (CSCO)', 'CSCO'],
+      ['Arista Networks (ANET)', 'ANET'],
+      ['Juniper Networks (JNPR)', 'JNPR'],
+      ['Dell Technologies (DELL)', 'DELL'],
+      ['Hewlett Packard Enterprise (HPE)', 'HPE'],
+      ['Pure Storage (PSTG)', 'PSTG'],
+      ['NetApp (NTAP)', 'NTAP'],
+      ['Super Micro Computer (SMCI)', 'SMCI'],
+      ['Vertiv (VRT)', 'VRT'],
+      ['Eaton (ETN)', 'ETN'],
+      ['IBM (IBM)', 'IBM'],
+    ],
+  },
 ];
 
 /** Flat [label, symbol] pairs for quote fetch (deduped by symbol, section order preserved). */
