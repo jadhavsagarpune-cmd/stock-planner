@@ -139,7 +139,7 @@ export default function SectorHeatmap({ items }) {
               </span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {noData.map(({ label, sym, it, pct }) => (
+              {noData.map(({ label, sym, pct }) => (
                 <span
                   key={sym}
                   title={`${label} · ${formatChangePct(pct) ?? '—'}`}
