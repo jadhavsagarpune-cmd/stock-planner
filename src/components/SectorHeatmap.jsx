@@ -1,5 +1,6 @@
 import { ALL_WATCHLIST_ENTRIES } from '../data/watchlist';
-import { formatChangePct } from '../lib/stockFormat';
+import { formatChangePct, pickHeatmapChangePct } from '../lib/stockFormat';
+import { heatmapSessionMeta } from '../lib/stockMarketSession';
 
 function heatColor(pct) {
   const n = Number(pct);
@@ -53,8 +54,12 @@ function bucketIndex(pct) {
   return CHANGE_BUCKETS.length;
 }
 
-/** Compact grid of all watchlist symbols clustered by session % change band. */
-export default function SectorHeatmap({ items }) {
+/**
+ * Compact grid of all watchlist symbols clustered by session % change band.
+ * @param {{ items: object[], sessionMode: 'regular' | 'pre' | 'post' }} props
+ */
+export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
+  const session = heatmapSessionMeta(sessionMode);
   const bySym = new Map();
   for (const it of items) {
     bySym.set(String(it.name || '').trim().toUpperCase(), it);
@@ -65,7 +70,7 @@ export default function SectorHeatmap({ items }) {
   const rows = ALL_WATCHLIST_ENTRIES.map(([label, symbol]) => {
     const sym = String(symbol).trim().toUpperCase();
     const it = bySym.get(sym);
-    const pct = it?.regular_change_pct;
+    const pct = pickHeatmapChangePct(it, sessionMode);
     const n = Number(pct);
     const sortKey = pct == null || Number.isNaN(n) ? 999 : n;
     return { label, sym, it, pct, sortKey, bucket: bucketIndex(pct) };
@@ -84,12 +89,19 @@ export default function SectorHeatmap({ items }) {
 
   return (
     <div className="rounded-xl border border-slate-700/90 bg-slate-900/50 p-3 sm:p-4">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
-          Session heatmap
-        </h2>
-        <span className="text-[10px] text-slate-500">
-          Regular session % · clustered by move
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
+          <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
+            {session.title}
+          </h2>
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold tracking-wider ${session.badgeClass}`}
+          >
+            {session.badge}
+          </span>
+        </div>
+        <span className="text-[10px] text-slate-500 text-right max-w-[16rem] leading-snug">
+          {session.subtitle}
         </span>
       </div>
       <div className="space-y-3">
@@ -108,7 +120,7 @@ export default function SectorHeatmap({ items }) {
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {band.tiles.map(({ label, sym, it, pct }) => {
-                    const title = `${label} · ${formatChangePct(pct) ?? '—'}`;
+                    const title = `${label} · ${formatChangePct(pct) ?? '—'} (${session.badge})`;
                     return (
                       <span
                         key={sym}

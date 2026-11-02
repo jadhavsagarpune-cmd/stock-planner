@@ -116,6 +116,20 @@ export function pickExtendedQuote(it, mode) {
   return { price, pct, abs };
 }
 
+/** % change used for session heatmap tiles (live vs pre vs after-hours). */
+export function pickHeatmapChangePct(it, sessionMode) {
+  if (!it || it.status !== 'done') return null;
+  const sym = String(it.name || '').trim().toUpperCase();
+  if (sym.endsWith('.KS') || sessionMode === 'regular') {
+    const n = Number(it.regular_change_pct);
+    return it.regular_change_pct == null || Number.isNaN(n) ? null : n;
+  }
+  const ext = pickExtendedQuote(it, sessionMode);
+  if (ext?.pct != null && !Number.isNaN(Number(ext.pct))) return Number(ext.pct);
+  const n = Number(it.regular_change_pct);
+  return it.regular_change_pct == null || Number.isNaN(n) ? null : n;
+}
+
 export function formatInr(amount) {
   if (amount == null || Number.isNaN(Number(amount))) return '—';
   return new Intl.NumberFormat('en-IN', {

@@ -75,6 +75,35 @@ export function extendedColumnLabel(mode) {
   return mode === 'post' ? 'After hrs' : 'Pre';
 }
 
+/** Heatmap header badge + helper copy for the active session. */
+export function heatmapSessionMeta(mode) {
+  if (mode === 'regular') {
+    return {
+      badge: 'LIVE',
+      title: 'Session heatmap · live',
+      subtitle: 'Regular session % change · clustered by move',
+      badgeClass:
+        'bg-emerald-950/80 text-emerald-300 border-emerald-600/50 ring-1 ring-emerald-500/30',
+    };
+  }
+  if (mode === 'pre') {
+    return {
+      badge: 'PRE',
+      title: 'Session heatmap · pre-market',
+      subtitle: 'Pre-market % vs last regular close · US names (KRX uses local session)',
+      badgeClass:
+        'bg-amber-950/80 text-amber-200 border-amber-600/50 ring-1 ring-amber-500/30',
+    };
+  }
+  return {
+    badge: 'AFTER HOURS',
+    title: 'Session heatmap · after hours',
+    subtitle: 'After-hours % vs last regular close · US names (KRX uses local session)',
+    badgeClass:
+      'bg-violet-950/80 text-violet-200 border-violet-600/50 ring-1 ring-violet-500/30',
+  };
+}
+
 export function isExtendedColumnMuted(mode) {
   return mode === 'regular';
 }

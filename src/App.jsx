@@ -267,7 +267,7 @@ export default function App() {
       </section>
 
       <div className="mb-4">
-        <SectorHeatmap items={items} />
+        <SectorHeatmap items={items} sessionMode={extendedMode} />
       </div>
 
       <section className="rounded-xl border border-slate-700 bg-slate-900/80 overflow-hidden">
