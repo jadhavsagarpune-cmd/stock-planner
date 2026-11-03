@@ -5,43 +5,52 @@ import { heatmapSessionMeta } from '../lib/stockMarketSession';
 function heatColor(pct) {
   const n = Number(pct);
   if (pct == null || Number.isNaN(n)) return 'bg-slate-800/80 border-slate-700/50';
-  if (n >= 2) return 'bg-emerald-600/50 border-emerald-500/40';
-  if (n > 0.25) return 'bg-emerald-900/50 border-emerald-700/40';
-  if (n <= -2) return 'bg-red-600/45 border-red-500/40';
-  if (n < -0.25) return 'bg-red-900/45 border-red-700/40';
-  return 'bg-slate-700/40 border-slate-600/40';
+  if (n >= 10) return 'bg-emerald-500/55 border-emerald-400/50';
+  if (n >= 5) return 'bg-emerald-600/50 border-emerald-500/40';
+  if (n > 1) return 'bg-emerald-900/50 border-emerald-700/40';
+  if (n >= -1 && n <= 1) return 'bg-slate-700/40 border-slate-600/40';
+  if (n > -5) return 'bg-red-900/45 border-red-700/40';
+  if (n > -10) return 'bg-red-600/45 border-red-500/40';
+  return 'bg-red-700/55 border-red-600/50';
 }
 
+/** Display order: worst → best (non-overlapping bands). */
 const CHANGE_BUCKETS = [
+  {
+    id: 'bad',
+    label: 'Bad',
+    subtitle: '≤ −10%',
+    match: (n) => n <= -10,
+  },
   {
     id: 'strong_down',
     label: 'Strong down',
-    subtitle: '≤ −2%',
-    match: (n) => n <= -2,
-  },
-  {
-    id: 'down',
-    label: 'Down',
-    subtitle: '−2% to −0.25%',
-    match: (n) => n > -2 && n < -0.25,
+    subtitle: '−10% to −1%',
+    match: (n) => n > -10 && n < -1,
   },
   {
     id: 'flat',
     label: 'Flat',
-    subtitle: '−0.25% to +0.25%',
-    match: (n) => n >= -0.25 && n <= 0.25,
+    subtitle: '0–1%',
+    match: (n) => n >= -1 && n <= 1,
   },
   {
     id: 'up',
     label: 'Up',
-    subtitle: '+0.25% to +2%',
-    match: (n) => n > 0.25 && n < 2,
+    subtitle: '1–5%',
+    match: (n) => n > 1 && n < 5,
   },
   {
     id: 'strong_up',
     label: 'Strong up',
-    subtitle: '≥ +2%',
-    match: (n) => n >= 2,
+    subtitle: '5–10%',
+    match: (n) => n >= 5 && n < 10,
+  },
+  {
+    id: 'rock_solid',
+    label: 'Rock solid',
+    subtitle: '≥ 10%',
+    match: (n) => n >= 10,
   },
 ];
 
@@ -80,7 +89,12 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
     ...bucket,
     tiles: rows
       .filter((r) => r.bucket === idx)
-      .sort((a, b) => a.sortKey - b.sortKey),
+      .sort((a, b) => {
+        if (bucket.id === 'bad' || bucket.id === 'strong_down') {
+          return a.sortKey - b.sortKey;
+        }
+        return b.sortKey - a.sortKey;
+      }),
   }));
 
   const noData = rows
@@ -105,41 +119,42 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
         </span>
       </div>
       <div className="space-y-3">
-        {bucketRows.map(
-          (band) =>
-            band.tiles.length > 0 && (
-              <div key={band.id}>
-                <div className="flex items-baseline gap-2 mb-1.5 border-b border-slate-700/60 pb-1">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                    {band.label}
-                  </p>
-                  <span className="text-[10px] text-slate-600">{band.subtitle}</span>
-                  <span className="text-[10px] text-slate-600 ml-auto tabular-nums">
-                    {band.tiles.length}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {band.tiles.map(({ label, sym, it, pct }) => {
-                    const title = `${label} · ${formatChangePct(pct) ?? '—'} (${session.badge})`;
-                    return (
-                      <span
-                        key={sym}
-                        title={title}
-                        className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums ${heatColor(pct)}`}
-                      >
-                        <span className="text-slate-200 font-semibold">
-                          {sym.replace('.KS', '')}
-                        </span>
-                        <span className="text-slate-400 scale-90">
-                          {it?.status === 'done' ? formatChangePct(pct) ?? '—' : '…'}
-                        </span>
+        {bucketRows.map((band) => (
+          <div key={band.id}>
+            <div className="flex items-baseline gap-2 mb-1.5 border-b border-slate-700/60 pb-1">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                {band.label}
+              </p>
+              <span className="text-[10px] text-slate-600">{band.subtitle}</span>
+              <span className="text-[10px] text-slate-600 ml-auto tabular-nums">
+                {band.tiles.length}
+              </span>
+            </div>
+            {band.tiles.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {band.tiles.map(({ label, sym, it, pct }) => {
+                  const title = `${label} · ${formatChangePct(pct) ?? '—'} (${session.badge})`;
+                  return (
+                    <span
+                      key={sym}
+                      title={title}
+                      className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums ${heatColor(pct)}`}
+                    >
+                      <span className="text-slate-200 font-semibold">
+                        {sym.replace('.KS', '')}
                       </span>
-                    );
-                  })}
-                </div>
+                      <span className="text-slate-400 scale-90">
+                        {it?.status === 'done' ? formatChangePct(pct) ?? '—' : '…'}
+                      </span>
+                    </span>
+                  );
+                })}
               </div>
-            ),
-        )}
+            ) : (
+              <p className="text-[10px] text-slate-600 italic py-0.5">No symbols in this band</p>
+            )}
+          </div>
+        ))}
         {noData.length > 0 && (
           <div>
             <div className="flex items-baseline gap-2 mb-1.5 border-b border-slate-700/60 pb-1">
