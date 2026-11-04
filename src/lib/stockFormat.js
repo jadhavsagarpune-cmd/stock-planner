@@ -130,6 +130,30 @@ export function pickHeatmapChangePct(it, sessionMode) {
   return it.regular_change_pct == null || Number.isNaN(n) ? null : n;
 }
 
+/** Session price for heatmap hover (matches pickHeatmapChangePct session). */
+export function pickHeatmapPrice(it, sessionMode) {
+  if (!it || it.status !== 'done') return null;
+  const sym = String(it.name || '').trim().toUpperCase();
+  if (sym.endsWith('.KS') || sessionMode === 'regular') {
+    const p = it.regular_price;
+    return p == null || Number.isNaN(Number(p)) ? null : Number(p);
+  }
+  const ext = pickExtendedQuote(it, sessionMode);
+  const price = ext?.price ?? it.regular_price;
+  return price == null || Number.isNaN(Number(price)) ? null : Number(price);
+}
+
+export function formatHeatmapTileTitle(label, it, pct, sessionMode, sessionBadge) {
+  const parts = [label];
+  const price = pickHeatmapPrice(it, sessionMode);
+  const priceStr = formatStockPrice(price, it?.currency);
+  if (priceStr && priceStr !== '—') parts.push(priceStr);
+  const pctStr = formatChangePct(pct);
+  if (pctStr) parts.push(pctStr);
+  if (sessionBadge) parts.push(`(${sessionBadge})`);
+  return parts.join(' · ');
+}
+
 export function formatInr(amount) {
   if (amount == null || Number.isNaN(Number(amount))) return '—';
   return new Intl.NumberFormat('en-IN', {

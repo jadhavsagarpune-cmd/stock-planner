@@ -1,5 +1,5 @@
 import { ALL_WATCHLIST_ENTRIES } from '../data/watchlist';
-import { formatChangePct, pickHeatmapChangePct } from '../lib/stockFormat';
+import { formatChangePct, formatHeatmapTileTitle, pickHeatmapChangePct } from '../lib/stockFormat';
 import { heatmapSessionMeta } from '../lib/stockMarketSession';
 
 function heatColor(pct) {
@@ -133,7 +133,13 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
             {band.tiles.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {band.tiles.map(({ label, sym, it, pct }) => {
-                  const title = `${label} · ${formatChangePct(pct) ?? '—'} (${session.badge})`;
+                  const title = formatHeatmapTileTitle(
+                    label,
+                    it,
+                    pct,
+                    sessionMode,
+                    session.badge,
+                  );
                   return (
                     <span
                       key={sym}
@@ -166,10 +172,10 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
               </span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {noData.map(({ label, sym, pct }) => (
+              {noData.map(({ label, sym, it, pct }) => (
                 <span
                   key={sym}
-                  title={`${label} · ${formatChangePct(pct) ?? '—'}`}
+                  title={formatHeatmapTileTitle(label, it, pct, sessionMode, session.badge)}
                   className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums ${heatColor(pct)}`}
                 >
                   <span className="text-slate-200 font-semibold">{sym.replace('.KS', '')}</span>
