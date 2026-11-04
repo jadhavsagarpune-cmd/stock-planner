@@ -63,6 +63,30 @@ function bucketIndex(pct) {
   return CHANGE_BUCKETS.length;
 }
 
+function googleStockSearchUrl(symbol) {
+  const sym = String(symbol || '').trim();
+  return `https://www.google.com/search?q=${encodeURIComponent(`${sym} stock`)}`;
+}
+
+function HeatmapTile({ sym, label, it, pct, sessionMode, sessionBadge }) {
+  const title = formatHeatmapTileTitle(label, it, pct, sessionMode, sessionBadge);
+  const href = googleStockSearchUrl(sym);
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`${title} · Search on Google`}
+      className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums no-underline hover:underline cursor-pointer ${heatColor(pct)}`}
+    >
+      <span className="text-slate-200 font-semibold">{sym.replace('.KS', '')}</span>
+      <span className="text-slate-400 scale-90">
+        {it?.status === 'done' ? formatChangePct(pct) ?? '—' : '…'}
+      </span>
+    </a>
+  );
+}
+
 /**
  * Compact grid of all watchlist symbols clustered by session % change band.
  * @param {{ items: object[], sessionMode: 'regular' | 'pre' | 'post' }} props
@@ -132,29 +156,17 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
             </div>
             {band.tiles.length > 0 ? (
               <div className="flex flex-wrap gap-1">
-                {band.tiles.map(({ label, sym, it, pct }) => {
-                  const title = formatHeatmapTileTitle(
-                    label,
-                    it,
-                    pct,
-                    sessionMode,
-                    session.badge,
-                  );
-                  return (
-                    <span
-                      key={sym}
-                      title={title}
-                      className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums ${heatColor(pct)}`}
-                    >
-                      <span className="text-slate-200 font-semibold">
-                        {sym.replace('.KS', '')}
-                      </span>
-                      <span className="text-slate-400 scale-90">
-                        {it?.status === 'done' ? formatChangePct(pct) ?? '—' : '…'}
-                      </span>
-                    </span>
-                  );
-                })}
+                {band.tiles.map(({ label, sym, it, pct }) => (
+                  <HeatmapTile
+                    key={sym}
+                    sym={sym}
+                    label={label}
+                    it={it}
+                    pct={pct}
+                    sessionMode={sessionMode}
+                    sessionBadge={session.badge}
+                  />
+                ))}
               </div>
             ) : (
               <p className="text-[10px] text-slate-600 italic py-0.5">No symbols in this band</p>
@@ -173,14 +185,15 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
             </div>
             <div className="flex flex-wrap gap-1">
               {noData.map(({ label, sym, it, pct }) => (
-                <span
+                <HeatmapTile
                   key={sym}
-                  title={formatHeatmapTileTitle(label, it, pct, sessionMode, session.badge)}
-                  className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums ${heatColor(pct)}`}
-                >
-                  <span className="text-slate-200 font-semibold">{sym.replace('.KS', '')}</span>
-                  <span className="text-slate-400 scale-90">…</span>
-                </span>
+                  sym={sym}
+                  label={label}
+                  it={it}
+                  pct={pct}
+                  sessionMode={sessionMode}
+                  sessionBadge={session.badge}
+                />
               ))}
             </div>
           </div>
