@@ -92,17 +92,11 @@ function mrvlHeadlinePriceLabel(mrvl, livePrice) {
   return 'Last · chart close';
 }
 
-function chartPriceBasisLine(mrvl, rangeLabel, rangeStartClose, chartEndClose) {
+function chartPriceBasisLine(mrvl) {
   const live = mrvl ? pickLiveChartPrice(mrvl) : null;
-  const mergeHint =
-    live != null
-      ? 'live quote merged into chart close'
-      : 'Yahoo chart close (poll every 60s on intraday ranges)';
-  const startStr =
-    rangeStartClose != null ? formatStockPrice(rangeStartClose, mrvl?.currency ?? 'USD') : '—';
-  const endStr =
-    chartEndClose != null ? formatStockPrice(chartEndClose, mrvl?.currency ?? 'USD') : '—';
-  return `Calculations: day change vs prior close · range % vs ${rangeLabel} start (${startStr} → ${endStr}) · chart uses ${mergeHint}`;
+  return live != null
+    ? 'Chart last bar uses live quote when polling.'
+    : 'Chart from Yahoo closes; intraday ranges refresh about every 60s.';
 }
 
 export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, extMuted, extLabel, mrvlExt, mrvlExtInrHint }) {
@@ -249,7 +243,9 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const currency = mrvl?.currency ?? 'USD';
   const headlineLabel = mrvlHeadlinePriceLabel(mrvl, livePrice);
   const rangeChipLabel = rangeSpec.label;
-  const basisLine = chartPriceBasisLine(mrvl, rangeChipLabel, rangeStartClose, chartLast);
+  const basisLine = chartPriceBasisLine(mrvl);
+  const headlineTone =
+    mrvl?.regular_change_pct != null ? changeColorClass(mrvl.regular_change_pct) : 'text-amber-50';
 
   return (
     <section className={`mb-4 rounded-xl border p-3 sm:p-4 ${MARVELL_HERO_PANEL}`}>
@@ -295,7 +291,9 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
               <span className="text-[10px] sm:text-xs text-amber-200/70 font-medium block mb-0.5">
                 {headlineLabel}
               </span>
-              <span className="font-mono text-2xl sm:text-3xl font-semibold tabular-nums text-amber-50 block leading-tight">
+              <span
+                className={`font-mono text-2xl sm:text-3xl font-semibold tabular-nums block leading-tight ${headlineTone}`}
+              >
                 {formatStockPrice(displayPrice, currency)}
               </span>
               {mrvlInrHint ? (
@@ -341,21 +339,13 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
               </div>
             )}
           </div>
-          {periodPct != null && chartBars.length > 1 && rangeStartClose != null && chartLast != null && (
-            <div className="rounded-lg border border-slate-700/40 bg-slate-950/35 px-2.5 py-2">
-              <span className="text-[10px] text-slate-500 block mb-0.5">
-                Range change vs {rangeChipLabel} start
+          {periodPct != null && chartBars.length > 1 && (
+            <p className="text-[11px] sm:text-xs tabular-nums leading-snug">
+              <span className="text-slate-500">{rangeChipLabel} range · vs range open</span>{' '}
+              <span className={`font-mono font-semibold ${changeColorClass(periodPct)}`}>
+                {formatSignedChangeAmount(periodAbs, currency)} ({formatChangePct(periodPct)})
               </span>
-              <p className="text-[11px] sm:text-xs text-slate-300 tabular-nums font-mono leading-snug break-words">
-                {formatStockPrice(rangeStartClose, currency)}
-                <span className="text-slate-500 mx-1">→</span>
-                {formatStockPrice(chartLast, currency)}
-              </p>
-              <p className={`font-mono text-sm sm:text-base tabular-nums mt-0.5 ${changeColorClass(periodPct)}`}>
-                {formatSignedChangeAmount(periodAbs, currency)}{' '}
-                <span className="text-xs opacity-90">({formatChangePct(periodPct)})</span>
-              </p>
-            </div>
+            </p>
           )}
           <p className="text-[10px] text-slate-500 leading-snug">{basisLine}</p>
         </div>

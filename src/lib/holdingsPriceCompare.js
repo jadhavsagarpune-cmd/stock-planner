@@ -1,10 +1,14 @@
-/** @param {number|null} customPrice @param {number|null} liveUsd */
+/**
+ * Live vs user entry (custom). Positive delta = live above entry (unrealized gain).
+ * @param {number|null} customPrice entry / average (USD)
+ * @param {number|null} liveUsd current quote (USD)
+ */
 export function mrvlLiveVsCustomDelta(customPrice, liveUsd, { eps = 0.005 } = {}) {
-  if (customPrice == null || liveUsd == null || !Number.isFinite(liveUsd) || liveUsd === 0) {
+  if (customPrice == null || liveUsd == null || !Number.isFinite(liveUsd) || !Number.isFinite(customPrice) || customPrice === 0) {
     return null;
   }
-  const deltaUsd = customPrice - liveUsd;
-  const deltaPct = (deltaUsd / liveUsd) * 100;
+  const deltaUsd = liveUsd - customPrice;
+  const deltaPct = (deltaUsd / customPrice) * 100;
   const same = Math.abs(deltaUsd) < eps;
   return { deltaUsd, deltaPct, same };
 }
