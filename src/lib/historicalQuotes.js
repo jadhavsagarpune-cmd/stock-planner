@@ -15,6 +15,7 @@ const DEFAULT_INTERVAL = '1d';
 
 /** Google Finance–style range chips for MRVL chart (Yahoo chart v8 range/interval). */
 export const MRVL_CHART_RANGES = [
+  { id: '1D', label: '1D', range: '1d', interval: '5m' },
   { id: '5D', label: '5D', range: '5d', interval: '15m' },
   { id: '7D', label: '7D', range: '7d', interval: '30m' },
   { id: '1M', label: '1M', range: '1mo', interval: '1d' },
@@ -25,7 +26,7 @@ export const MRVL_CHART_RANGES = [
   { id: '5Y', label: '5Y', range: '5y', interval: '1wk' },
 ];
 
-export const DEFAULT_MRVL_CHART_RANGE_ID = '1M';
+export const DEFAULT_MRVL_CHART_RANGE_ID = '1D';
 
 export function chartHistoryUrl(symbol, range = DEFAULT_RANGE, interval = DEFAULT_INTERVAL) {
   const sym = String(symbol || '').trim().toUpperCase();

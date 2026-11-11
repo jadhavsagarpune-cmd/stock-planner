@@ -28,6 +28,10 @@ const CHART_H = 160;
 const PAD = { t: 8, r: 8, b: 22, l: 8 };
 const INTRADAY_CHART_POLL_MS = 60_000;
 
+function isIntradayChartInterval(interval) {
+  return interval === '1m' || interval === '5m' || interval === '15m' || interval === '30m';
+}
+
 function periodChange(bars) {
   if (!bars?.length) return { pct: null, abs: null, first: null, last: null };
   const first = bars[0].close;
@@ -109,7 +113,10 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const svgRef = useRef(null);
 
   const rangeSpec = useMemo(
-    () => MRVL_CHART_RANGES.find((r) => r.id === rangeId) ?? MRVL_CHART_RANGES[2],
+    () =>
+      MRVL_CHART_RANGES.find((r) => r.id === rangeId)
+      ?? MRVL_CHART_RANGES.find((r) => r.id === DEFAULT_MRVL_CHART_RANGE_ID)
+      ?? MRVL_CHART_RANGES[0],
     [rangeId],
   );
 
@@ -140,7 +147,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   }, [loadChart]);
 
   useEffect(() => {
-    if (rangeSpec.interval !== '15m' && rangeSpec.interval !== '30m') return undefined;
+    if (!isIntradayChartInterval(rangeSpec.interval)) return undefined;
     const id = window.setInterval(() => {
       const ac = new AbortController();
       void loadChart(ac.signal);
@@ -237,7 +244,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
           <span className={`${MARVELL_TICKER_CHIP} shrink-0`}>MRVL</span>
         </div>
         <div
-          className="flex flex-wrap gap-1 w-full sm:w-auto sm:justify-end"
+          className="flex gap-1 w-full sm:w-auto sm:justify-end overflow-x-auto overflow-y-hidden flex-nowrap pb-0.5 -mx-0.5 px-0.5 snap-x snap-mandatory scrollbar-thin"
           role="tablist"
           aria-label="MRVL chart range"
         >
@@ -250,7 +257,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
                 role="tab"
                 aria-selected={active}
                 onClick={() => setRangeId(r.id)}
-                className={`text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border tabular-nums transition-colors ${
+                className={`shrink-0 snap-start text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border tabular-nums transition-colors ${
                   active
                     ? 'bg-amber-500/25 text-amber-100 border-amber-400/60'
                     : 'bg-slate-950/40 text-slate-400 border-slate-600/50 hover:border-amber-500/35 hover:text-amber-200/90'

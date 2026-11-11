@@ -34,7 +34,8 @@ export default async function handler(req, res) {
       return;
     }
     const payload = await upstream.json();
-    const shortRange = interval.endsWith('m') || range === '5d' || range === '7d';
+    const shortRange =
+      interval.endsWith('m') || range === '1d' || range === '5d' || range === '7d';
     res.setHeader(
       'Cache-Control',
       shortRange ? 's-maxage=15, stale-while-revalidate=45' : 's-maxage=30, stale-while-revalidate=60',
