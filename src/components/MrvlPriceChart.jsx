@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MarvellMarker from './MarvellMarker';
 import {
   DEFAULT_MRVL_CHART_RANGE_ID,
@@ -13,6 +13,13 @@ import {
   formatSignedChangeAmount,
   formatStockPrice,
 } from '../lib/stockFormat';
+import {
+  barIndexToSvgX,
+  closeToSvgY,
+  formatChartBarTime,
+  nearestBarIndexFromPointer,
+  pctFromRangeStart,
+} from '../lib/mrvlChartGeometry';
 import StockPriceChangeLines from './StockPriceChangeLines';
 
 const CHART_W = 640;
@@ -31,24 +38,23 @@ function periodChange(bars) {
   return { pct, abs: last - first, first, last };
 }
 
-function buildPath(bars, plotW, plotH, minY, maxY) {
-  if (!bars.length || maxY <= minY) return '';
-  const span = maxY - minY || 1;
+function buildPath(bars, plotW, plotH, yMin, yMax) {
+  if (!bars.length || yMax <= yMin) return '';
   const n = bars.length;
   const pts = bars.map((b, i) => {
-    const x = PAD.l + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
-    const y = PAD.t + plotH - ((b.close - minY) / span) * plotH;
+    const x = barIndexToSvgX(i, n, PAD.l, plotW);
+    const y = closeToSvgY(b.close, PAD.t, plotH, yMin, yMax);
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   });
   return `M ${pts.join(' L ')}`;
 }
 
-function buildArea(bars, plotW, plotH, minY, maxY) {
-  const line = buildPath(bars, plotW, plotH, minY, maxY);
+function buildArea(bars, plotW, plotH, yMin, yMax) {
+  const line = buildPath(bars, plotW, plotH, yMin, yMax);
   if (!line || !bars.length) return '';
   const n = bars.length;
   const x0 = PAD.l;
-  const x1 = PAD.l + (n <= 1 ? plotW / 2 : plotW);
+  const x1 = barIndexToSvgX(n - 1, n, PAD.l, plotW);
   const yBase = PAD.t + plotH;
   return `${line} L ${x1.toFixed(2)},${yBase} L ${x0.toFixed(2)},${yBase} Z`;
 }
@@ -58,6 +64,8 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const [bars, setBars] = useState([]);
   const [chartErr, setChartErr] = useState('');
   const [chartLoading, setChartLoading] = useState(true);
+  const [hoverIndex, setHoverIndex] = useState(null);
+  const svgRef = useRef(null);
 
   const rangeSpec = useMemo(
     () => MRVL_CHART_RANGES.find((r) => r.id === rangeId) ?? MRVL_CHART_RANGES[2],
@@ -123,6 +131,54 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
 
   const linePath = buildPath(chartBars, plotW, plotH, yMin, yMax);
   const areaPath = buildArea(chartBars, plotW, plotH, yMin, yMax);
+
+  const rangeStartClose = chartBars[0]?.close ?? null;
+
+  const pointerGeom = useMemo(
+    () => ({ chartW: CHART_W, padL: PAD.l, plotW, barCount: chartBars.length }),
+    [plotW, chartBars.length],
+  );
+
+  const updateHoverFromClientX = useCallback(
+    (clientX) => {
+      const idx = nearestBarIndexFromPointer(clientX, svgRef.current, pointerGeom);
+      setHoverIndex(idx);
+    },
+    [pointerGeom],
+  );
+
+  const onChartPointerMove = useCallback(
+    (e) => {
+      updateHoverFromClientX(e.clientX);
+    },
+    [updateHoverFromClientX],
+  );
+
+  const onChartPointerLeave = useCallback(() => {
+    setHoverIndex(null);
+  }, []);
+
+  const onChartTouchMove = useCallback(
+    (e) => {
+      const t = e.touches[0];
+      if (t) updateHoverFromClientX(t.clientX);
+    },
+    [updateHoverFromClientX],
+  );
+
+  useEffect(() => {
+    setHoverIndex(null);
+  }, [rangeId, chartBars.length]);
+
+  const hoveredBar = hoverIndex != null ? chartBars[hoverIndex] : null;
+  const hoverX =
+    hoverIndex != null ? barIndexToSvgX(hoverIndex, chartBars.length, PAD.l, plotW) : null;
+  const hoverY =
+    hoveredBar != null ? closeToSvgY(hoveredBar.close, PAD.t, plotH, yMin, yMax) : null;
+  const hoverRangePct =
+    hoveredBar != null ? pctFromRangeStart(hoveredBar.close, rangeStartClose) : null;
+  const tooltipLeftPct =
+    hoverX != null ? Math.min(92, Math.max(8, (hoverX / CHART_W) * 100)) : 50;
 
   const displayPrice = mrvl?.regular_price ?? chartLast;
   const currency = mrvl?.currency ?? 'USD';
@@ -228,38 +284,107 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
           <p className="text-xs text-amber-300/90 px-2 py-6 text-center">{chartErr}</p>
         )}
         {!chartErr && chartBars.length > 0 && (
-          <svg
-            viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-            className="w-full h-[140px] sm:h-[160px] block"
-            role="img"
-            aria-label={`MRVL price chart, ${rangeId}`}
-          >
-            <defs>
-              <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={stroke} stopOpacity="0.35" />
-                <stop offset="100%" stopColor={stroke} stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-            <line
-              x1={PAD.l}
-              y1={PAD.t + plotH}
-              x2={CHART_W - PAD.r}
-              y2={PAD.t + plotH}
-              stroke="rgb(51 65 85 / 0.6)"
-              strokeWidth="1"
-            />
-            {areaPath && <path d={areaPath} fill={`url(#${fillId})`} />}
-            {linePath && (
-              <path
-                d={linePath}
-                fill="none"
-                stroke={stroke}
-                strokeWidth="2"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
+          <>
+            {hoveredBar != null && (
+              <div
+                className="pointer-events-none absolute z-20 top-1.5 -translate-x-1/2 rounded-md border border-slate-600/80 bg-slate-900/95 px-2 py-1 shadow-lg"
+                style={{ left: `${tooltipLeftPct}%` }}
+                role="status"
+                aria-live="polite"
+              >
+                <p className="font-mono text-sm font-semibold tabular-nums text-amber-50 whitespace-nowrap">
+                  {formatStockPrice(hoveredBar.close, currency)}
+                </p>
+                <p className="text-[10px] text-slate-400 whitespace-nowrap">
+                  {formatChartBarTime(hoveredBar.t, rangeSpec.interval)}
+                </p>
+                {hoverRangePct != null && (
+                  <p
+                    className={`text-[10px] tabular-nums whitespace-nowrap ${changeColorClass(hoverRangePct)}`}
+                  >
+                    {formatChangePct(hoverRangePct)} vs range start
+                  </p>
+                )}
+              </div>
             )}
-          </svg>
+            <svg
+              ref={svgRef}
+              viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+              className="w-full h-[140px] sm:h-[160px] block touch-none cursor-crosshair"
+              role="img"
+              aria-label={`MRVL price chart, ${rangeId}`}
+              onMouseMove={onChartPointerMove}
+              onMouseLeave={onChartPointerLeave}
+              onTouchStart={onChartTouchMove}
+              onTouchMove={onChartTouchMove}
+              onTouchEnd={onChartPointerLeave}
+            >
+              <defs>
+                <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={stroke} stopOpacity="0.35" />
+                  <stop offset="100%" stopColor={stroke} stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+              <line
+                x1={PAD.l}
+                y1={PAD.t + plotH}
+                x2={CHART_W - PAD.r}
+                y2={PAD.t + plotH}
+                stroke="rgb(51 65 85 / 0.6)"
+                strokeWidth="1"
+              />
+              {areaPath && <path d={areaPath} fill={`url(#${fillId})`} pointerEvents="none" />}
+              {linePath && (
+                <path
+                  d={linePath}
+                  fill="none"
+                  stroke={stroke}
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  pointerEvents="none"
+                />
+              )}
+              {hoverX != null && hoverY != null && (
+                <g pointerEvents="none" aria-hidden>
+                  <line
+                    x1={hoverX}
+                    y1={PAD.t}
+                    x2={hoverX}
+                    y2={PAD.t + plotH}
+                    stroke="rgb(148 163 184 / 0.55)"
+                    strokeWidth="1"
+                    strokeDasharray="3 3"
+                  />
+                  <line
+                    x1={PAD.l}
+                    y1={hoverY}
+                    x2={CHART_W - PAD.r}
+                    y2={hoverY}
+                    stroke="rgb(148 163 184 / 0.35)"
+                    strokeWidth="1"
+                    strokeDasharray="2 4"
+                  />
+                  <circle
+                    cx={hoverX}
+                    cy={hoverY}
+                    r="4"
+                    fill={stroke}
+                    stroke="rgb(15 23 42)"
+                    strokeWidth="2"
+                  />
+                </g>
+              )}
+              <rect
+                x={PAD.l}
+                y={PAD.t}
+                width={plotW}
+                height={plotH}
+                fill="transparent"
+                aria-hidden
+              />
+            </svg>
+          </>
         )}
       </div>
     </section>

@@ -3,6 +3,11 @@
  * Run: node scripts/test-chart-merge.mjs
  */
 import { mergeLivePriceIntoBars, pickLiveChartPrice } from '../src/lib/chartLiveMerge.js';
+import {
+  barIndexToSvgX,
+  nearestBarIndexFromPointer,
+  pctFromRangeStart,
+} from '../src/lib/mrvlChartGeometry.js';
 
 const yBars = [
   { t: Date.now() - 2 * 86_400_000, close: 78 },
@@ -32,6 +37,34 @@ const intraBars = [
 const mergedIntra = mergeLivePriceIntoBars(intraBars, quote, { interval: '15m' });
 if (mergedIntra.length !== 1 || mergedIntra[0].close !== 80.75) {
   console.error('FAIL intraday update bucket', mergedIntra);
+  process.exit(1);
+}
+
+if (barIndexToSvgX(0, 3, 8, 100) !== 8) {
+  console.error('FAIL barIndexToSvgX first');
+  process.exit(1);
+}
+if (barIndexToSvgX(2, 3, 8, 100) !== 108) {
+  console.error('FAIL barIndexToSvgX last');
+  process.exit(1);
+}
+
+const mockSvg = {
+  getBoundingClientRect: () => ({ left: 100, width: 320 }),
+};
+const midIdx = nearestBarIndexFromPointer(260, mockSvg, {
+  chartW: 640,
+  padL: 8,
+  plotW: 624,
+  barCount: 5,
+});
+if (midIdx !== 2) {
+  console.error('FAIL nearestBarIndexFromPointer', midIdx);
+  process.exit(1);
+}
+
+if (pctFromRangeStart(110, 100) !== 10) {
+  console.error('FAIL pctFromRangeStart');
   process.exit(1);
 }
 
