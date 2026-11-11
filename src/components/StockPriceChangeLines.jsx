@@ -19,9 +19,9 @@ export default function StockPriceChangeLines({
   showInrChange = false,
   className = '',
 }) {
-  const effectivePct = pct ?? quote?.regular_change_pct;
+  const effectivePct = pct ?? quote?.regular_change_pct ?? null;
   let abs = changeAbs;
-  if (abs == null && quote) abs = deriveRegularChangeAbsFromRow(quote);
+  if (abs == null && quote && pct == null) abs = deriveRegularChangeAbsFromRow(quote);
   const amountLabel = formatSignedChangeAmount(abs, currency);
   const pctLabel = formatChangePctParen(effectivePct);
   if (!amountLabel && !pctLabel) return null;

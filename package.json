@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "npx vite build",
     "preview": "vite preview",
-    "test:logic": "node scripts/verify-quote-logic.mjs && node scripts/test-heatmap-baselines.mjs && node scripts/test-chart-merge.mjs && node scripts/test-holdings-price-compare.mjs"
+    "test:logic": "node scripts/verify-quote-logic.mjs && node scripts/test-heatmap-baselines.mjs && node scripts/test-chart-merge.mjs && node scripts/test-holdings-price-compare.mjs && node scripts/test-session-quote.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.2",

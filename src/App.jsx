@@ -4,6 +4,7 @@ import { fetchMrvlQuote, fetchUsdInrRate, fetchWatchlistQuotes } from './lib/quo
 import { fetchEtfBenchmarks } from './lib/etfBenchmarks';
 import { downloadWatchlistCsv } from './lib/exportWatchlistCsv';
 import { formatMrvlInrHint, pickExtendedQuote } from './lib/stockFormat';
+import { pickActiveSessionPrice } from './lib/sessionQuote';
 import {
   extendedColumnLabel,
   isExtendedColumnMuted,
@@ -156,10 +157,9 @@ export default function App() {
   const extLabel = extendedColumnLabel(extendedMode);
   const mrvlExt = pickExtendedQuote(mrvl, extendedMode);
   const fxRate = usdInr?.rate != null ? Number(usdInr.rate) : null;
+  const mrvlHeadlineUsd = mrvl ? pickActiveSessionPrice(mrvl) : null;
   const mrvlInrHint =
-    mrvl?.regular_price != null && fxRate != null
-      ? formatMrvlInrHint(mrvl.regular_price, fxRate)
-      : null;
+    mrvlHeadlineUsd != null && fxRate != null ? formatMrvlInrHint(mrvlHeadlineUsd, fxRate) : null;
   const mrvlExtInrHint =
     mrvlExt?.price != null && fxRate != null ? formatMrvlInrHint(mrvlExt.price, fxRate) : null;
   const fxTime = usdInr?.fetched_at

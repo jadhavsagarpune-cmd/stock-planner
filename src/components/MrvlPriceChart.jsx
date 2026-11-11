@@ -5,7 +5,6 @@ import {
   fetchYahooChartCloses,
   mergeLivePriceIntoBars,
   MRVL_CHART_RANGES,
-  pickLiveChartPrice,
 } from '../lib/historicalQuotes';
 import { MARVELL_HERO_PANEL, MARVELL_TICKER_CHIP, MARVELL_TICKER } from '../lib/marvellBrand';
 import {
@@ -23,6 +22,13 @@ import {
   svgPointToClient,
 } from '../lib/mrvlChartGeometry';
 import StockPriceChangeLines from './StockPriceChangeLines';
+import MarketStatusChip from './MarketStatusChip';
+import {
+  activeSessionPriceLabel,
+  pickActiveSessionPrice,
+  pickSessionDayChange,
+  resolveActiveSession,
+} from '../lib/sessionQuote';
 
 const CHART_W = 640;
 const CHART_H = 160;
@@ -65,35 +71,8 @@ function buildArea(bars, plotW, plotH, yMin, yMax) {
   return `${line} L ${x1.toFixed(2)},${yBase} L ${x0.toFixed(2)},${yBase} Z`;
 }
 
-function normalizeMarketState(state) {
-  const s = String(state || '').trim().toUpperCase();
-  if (s === 'PREPRE') return 'PRE';
-  if (s === 'POSTPOST') return 'POST';
-  return s;
-}
-
-/** User-facing label for the headline price (live poll vs session last). */
-function mrvlHeadlinePriceLabel(mrvl, livePrice) {
-  if (!mrvl) return 'Price';
-  const reg = mrvl.regular_price;
-  const state = normalizeMarketState(mrvl.market_state);
-  const live =
-    livePrice != null
-      ? livePrice
-      : pickLiveChartPrice(mrvl);
-  const differsFromReg =
-    live != null && reg != null && Math.abs(live - reg) >= 0.005;
-  if (differsFromReg) {
-    if (state === 'PRE') return 'Live · pre-market';
-    if (state === 'POST' || state === 'CLOSED') return 'Live · after-hours';
-    return 'Live price';
-  }
-  if (reg != null) return 'Last · regular session';
-  return 'Last · chart close';
-}
-
 function chartPriceBasisLine(mrvl) {
-  const live = mrvl ? pickLiveChartPrice(mrvl) : null;
+  const live = mrvl ? pickActiveSessionPrice(mrvl) : null;
   return live != null
     ? 'Chart last bar uses live quote when polling.'
     : 'Chart from Yahoo closes; intraday ranges refresh about every 60s.';
@@ -238,14 +217,18 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
     return Math.min(92, Math.max(8, (hoverX / CHART_W) * 100));
   }, [hoverX, hoverY]);
 
-  const livePrice = mrvl ? pickLiveChartPrice(mrvl) : null;
+  const livePrice = mrvl ? pickActiveSessionPrice(mrvl) : null;
+  const sessionDay = mrvl ? pickSessionDayChange(mrvl) : null;
   const displayPrice = livePrice ?? mrvl?.regular_price ?? chartLast;
   const currency = mrvl?.currency ?? 'USD';
-  const headlineLabel = mrvlHeadlinePriceLabel(mrvl, livePrice);
+  const headlineLabel = mrvl ? activeSessionPriceLabel(mrvl) : 'Price';
   const rangeChipLabel = rangeSpec.label;
   const basisLine = chartPriceBasisLine(mrvl);
   const headlineTone =
-    mrvl?.regular_change_pct != null ? changeColorClass(mrvl.regular_change_pct) : 'text-amber-50';
+    sessionDay?.pct != null ? changeColorClass(sessionDay.pct) : 'text-amber-50';
+  const activeSession = mrvl ? resolveActiveSession(mrvl) : 'closed';
+  const showExtColumn =
+    !extMuted && mrvlExt?.price != null && activeSession === 'regular';
 
   return (
     <section className={`mb-4 rounded-xl border p-3 sm:p-4 ${MARVELL_HERO_PANEL}`}>
@@ -254,6 +237,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
           <MarvellMarker size={14} />
           <span className="truncate">Marvell Technology</span>
           <span className={`${MARVELL_TICKER_CHIP} shrink-0`}>MRVL</span>
+          {mrvl ? <MarketStatusChip quote={mrvl} className="shrink-0" /> : null}
         </div>
         <div
           className="flex gap-1 w-full sm:w-auto sm:justify-end overflow-x-auto overflow-y-hidden flex-nowrap pb-0.5 -mx-0.5 px-0.5 snap-x snap-mandatory scrollbar-thin"
@@ -301,21 +285,22 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
                   {mrvlInrHint}
                 </span>
               ) : null}
-              {mrvl ? (
+              {sessionDay ? (
                 <div className="mt-1.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 block mb-0.5">Day change · vs prior close</span>
                   <StockPriceChangeLines
                     quote={mrvl}
-                    pct={mrvl.regular_change_pct}
+                    pct={sessionDay.pct}
+                    changeAbs={sessionDay.abs}
                     currency={currency}
                     fxRate={fxRate}
                     showInrChange
                     className="!items-start !text-[11px] sm:!text-xs"
                   />
+                  <span className="text-[10px] text-slate-500 block mt-0.5">{sessionDay.referenceLabel}</span>
                 </div>
               ) : null}
             </div>
-            {!extMuted && mrvlExt?.price != null && (
+            {showExtColumn && (
               <div className="min-w-0 min-[420px]:border-l min-[420px]:border-slate-700/50 min-[420px]:pl-3 sm:pl-4">
                 <span className="text-[10px] sm:text-xs text-slate-500 block mb-0.5">{extLabel}</span>
                 <span className="font-mono text-lg sm:text-xl text-violet-200 font-semibold tabular-nums block">

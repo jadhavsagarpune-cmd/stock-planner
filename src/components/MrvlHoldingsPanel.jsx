@@ -1,5 +1,10 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { pickLiveChartPrice } from '../lib/chartLiveMerge';
+import {
+  activeSessionPriceLabel,
+  pickActiveSessionPrice,
+  pickSessionDayChange,
+} from '../lib/sessionQuote';
+import MarketStatusChip from './MarketStatusChip';
 import {
   mrvlHoldingsValuationPrice,
   mrvlLiveVsCustomDelta,
@@ -57,7 +62,9 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
 
   const shareCount = parsePositiveNumber(shares);
   const customPrice = parsePositiveNumber(customUsd);
-  const liveUsd = mrvl ? pickLiveChartPrice(mrvl) : null;
+  const liveUsd = mrvl ? pickActiveSessionPrice(mrvl) : null;
+  const sessionDay = mrvl ? pickSessionDayChange(mrvl) : null;
+  const liveLabel = mrvl ? activeSessionPriceLabel(mrvl) : 'Live price';
   const currency = mrvl?.currency || 'USD';
   const priceUsd = mrvlHoldingsValuationPrice(customPrice, liveUsd);
   const priceDelta = mrvlLiveVsCustomDelta(customPrice, liveUsd, { eps: PRICE_DELTA_EPS });
@@ -149,8 +156,9 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
       >
         <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-800">
           <div>
-            <h2 id={titleId} className="text-sm font-semibold text-white">
+            <h2 id={titleId} className="text-sm font-semibold text-white flex items-center gap-2">
               MRVL holdings (INR)
+              {mrvl ? <MarketStatusChip quote={mrvl} /> : null}
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
               Compare live MRVL to your cost basis · INR uses custom price when set
@@ -171,30 +179,29 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 min-[380px]:gap-4">
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
-                  Live price
+                  {liveLabel}
                 </div>
                 <div className="mt-0.5 font-mono text-lg sm:text-xl font-semibold tabular-nums text-white break-all">
                   {liveUsd != null ? formatStockPrice(liveUsd, currency) : '—'}
                 </div>
-                {mrvl ? (
+                {sessionDay ? (
                   <div className="mt-1.5 min-w-0">
-                    <span className="text-[10px] text-slate-500 block mb-0.5">
-                      Day change · vs prior close
-                    </span>
                     <StockPriceChangeLines
                       quote={mrvl}
-                      pct={mrvl.regular_change_pct}
+                      pct={sessionDay.pct}
+                      changeAbs={sessionDay.abs}
                       currency={currency}
                       fxRate={fxRate}
                       showInrChange
                       className="!items-start !text-[10px] sm:!text-[11px]"
                     />
+                    <span className="text-[10px] text-slate-500 block mt-0.5">{sessionDay.referenceLabel}</span>
                   </div>
-                ) : (
+                ) : mrvl ? (
                   <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
                     Current MRVL quote (same as chart)
                   </p>
-                )}
+                ) : null}
               </div>
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wide text-violet-300/90 font-medium">
