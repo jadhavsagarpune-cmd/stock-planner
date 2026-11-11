@@ -5,6 +5,7 @@ import {
   fetchYahooChartCloses,
   mergeLivePriceIntoBars,
   MRVL_CHART_RANGES,
+  pickLiveChartPrice,
 } from '../lib/historicalQuotes';
 import { MARVELL_HERO_PANEL, MARVELL_TICKER_CHIP, MARVELL_TICKER } from '../lib/marvellBrand';
 import {
@@ -57,6 +58,46 @@ function buildArea(bars, plotW, plotH, yMin, yMax) {
   const x1 = barIndexToSvgX(n - 1, n, PAD.l, plotW);
   const yBase = PAD.t + plotH;
   return `${line} L ${x1.toFixed(2)},${yBase} L ${x0.toFixed(2)},${yBase} Z`;
+}
+
+function normalizeMarketState(state) {
+  const s = String(state || '').trim().toUpperCase();
+  if (s === 'PREPRE') return 'PRE';
+  if (s === 'POSTPOST') return 'POST';
+  return s;
+}
+
+/** User-facing label for the headline price (live poll vs session last). */
+function mrvlHeadlinePriceLabel(mrvl, livePrice) {
+  if (!mrvl) return 'Price';
+  const reg = mrvl.regular_price;
+  const state = normalizeMarketState(mrvl.market_state);
+  const live =
+    livePrice != null
+      ? livePrice
+      : pickLiveChartPrice(mrvl);
+  const differsFromReg =
+    live != null && reg != null && Math.abs(live - reg) >= 0.005;
+  if (differsFromReg) {
+    if (state === 'PRE') return 'Live · pre-market';
+    if (state === 'POST' || state === 'CLOSED') return 'Live · after-hours';
+    return 'Live price';
+  }
+  if (reg != null) return 'Last · regular session';
+  return 'Last · chart close';
+}
+
+function chartPriceBasisLine(mrvl, rangeLabel, rangeStartClose, chartEndClose) {
+  const live = mrvl ? pickLiveChartPrice(mrvl) : null;
+  const mergeHint =
+    live != null
+      ? 'live quote merged into chart close'
+      : 'Yahoo chart close (poll every 60s on intraday ranges)';
+  const startStr =
+    rangeStartClose != null ? formatStockPrice(rangeStartClose, mrvl?.currency ?? 'USD') : '—';
+  const endStr =
+    chartEndClose != null ? formatStockPrice(chartEndClose, mrvl?.currency ?? 'USD') : '—';
+  return `Calculations: day change vs prior close · range % vs ${rangeLabel} start (${startStr} → ${endStr}) · chart uses ${mergeHint}`;
 }
 
 export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, extMuted, extLabel, mrvlExt, mrvlExtInrHint }) {
@@ -180,18 +221,26 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const tooltipLeftPct =
     hoverX != null ? Math.min(92, Math.max(8, (hoverX / CHART_W) * 100)) : 50;
 
-  const displayPrice = mrvl?.regular_price ?? chartLast;
+  const livePrice = mrvl ? pickLiveChartPrice(mrvl) : null;
+  const displayPrice = livePrice ?? mrvl?.regular_price ?? chartLast;
   const currency = mrvl?.currency ?? 'USD';
+  const headlineLabel = mrvlHeadlinePriceLabel(mrvl, livePrice);
+  const rangeChipLabel = rangeSpec.label;
+  const basisLine = chartPriceBasisLine(mrvl, rangeChipLabel, rangeStartClose, chartLast);
 
   return (
     <section className={`mb-4 rounded-xl border p-3 sm:p-4 ${MARVELL_HERO_PANEL}`}>
-      <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-amber-300/90 font-semibold">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
+        <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] uppercase tracking-wide text-amber-300/90 font-semibold min-w-0">
           <MarvellMarker size={14} />
-          <span>Marvell Technology</span>
-          <span className={MARVELL_TICKER_CHIP}>MRVL</span>
+          <span className="truncate">Marvell Technology</span>
+          <span className={`${MARVELL_TICKER_CHIP} shrink-0`}>MRVL</span>
         </div>
-        <div className="flex flex-wrap gap-1" role="tablist" aria-label="MRVL chart range">
+        <div
+          className="flex flex-wrap gap-1 w-full sm:w-auto sm:justify-end"
+          role="tablist"
+          aria-label="MRVL chart range"
+        >
           {MRVL_CHART_RANGES.map((r) => {
             const active = r.id === rangeId;
             return (
@@ -201,7 +250,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
                 role="tab"
                 aria-selected={active}
                 onClick={() => setRangeId(r.id)}
-                className={`text-[11px] px-2 py-1 rounded-md border tabular-nums transition-colors ${
+                className={`text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border tabular-nums transition-colors ${
                   active
                     ? 'bg-amber-500/25 text-amber-100 border-amber-400/60'
                     : 'bg-slate-950/40 text-slate-400 border-slate-600/50 hover:border-amber-500/35 hover:text-amber-200/90'
@@ -217,58 +266,75 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
       {mrvlErr ? (
         <p className="text-sm text-amber-300 mb-2">{mrvlErr}</p>
       ) : displayPrice != null ? (
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-1 mb-3">
-          <div>
-            <span className="text-xs text-slate-500 block">Current</span>
-            <div className="flex flex-col items-start gap-0.5">
-              <span className="font-mono text-xl sm:text-2xl font-semibold tabular-nums text-amber-50">
-                {formatStockPrice(displayPrice, currency)}
-                {mrvlInrHint && (
-                  <span className="text-sm font-normal text-violet-300/90 ml-1.5">({mrvlInrHint})</span>
-                )}
+        <div className="space-y-2 mb-3">
+          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 sm:gap-4">
+            <div className="min-w-0">
+              <span className="text-[10px] sm:text-xs text-amber-200/70 font-medium block mb-0.5">
+                {headlineLabel}
               </span>
+              <span className="font-mono text-2xl sm:text-3xl font-semibold tabular-nums text-amber-50 block leading-tight">
+                {formatStockPrice(displayPrice, currency)}
+              </span>
+              {mrvlInrHint ? (
+                <span className="text-[11px] sm:text-xs font-normal text-violet-300/90 block mt-0.5 tabular-nums">
+                  {mrvlInrHint}
+                </span>
+              ) : null}
               {mrvl ? (
-                <StockPriceChangeLines
-                  quote={mrvl}
-                  pct={mrvl.regular_change_pct}
-                  currency={currency}
-                  fxRate={fxRate}
-                  showInrChange
-                  className="!items-start"
-                />
+                <div className="mt-1.5 min-w-0">
+                  <span className="text-[10px] text-slate-500 block mb-0.5">Day change · vs prior close</span>
+                  <StockPriceChangeLines
+                    quote={mrvl}
+                    pct={mrvl.regular_change_pct}
+                    currency={currency}
+                    fxRate={fxRate}
+                    showInrChange
+                    className="!items-start !text-[11px] sm:!text-xs"
+                  />
+                </div>
               ) : null}
             </div>
-          </div>
-          {!extMuted && mrvlExt?.price != null && (
-            <div>
-              <span className="text-xs text-slate-500 block">{extLabel}</span>
-              <div className="flex flex-col items-start gap-0.5">
-                <span className="font-mono text-violet-200 font-semibold tabular-nums">
+            {!extMuted && mrvlExt?.price != null && (
+              <div className="min-w-0 min-[420px]:border-l min-[420px]:border-slate-700/50 min-[420px]:pl-3 sm:pl-4">
+                <span className="text-[10px] sm:text-xs text-slate-500 block mb-0.5">{extLabel}</span>
+                <span className="font-mono text-lg sm:text-xl text-violet-200 font-semibold tabular-nums block">
                   {formatStockPrice(mrvlExt.price, currency)}
-                  {mrvlExtInrHint && (
-                    <span className="text-sm font-normal text-violet-300/80 ml-1.5">({mrvlExtInrHint})</span>
-                  )}
                 </span>
-                <StockPriceChangeLines
-                  pct={mrvlExt.pct}
-                  changeAbs={mrvlExt.abs}
-                  currency={currency}
-                  fxRate={fxRate}
-                  showInrChange
-                  className="!items-start"
-                />
+                {mrvlExtInrHint ? (
+                  <span className="text-[11px] sm:text-xs font-normal text-violet-300/80 block mt-0.5 tabular-nums">
+                    {mrvlExtInrHint}
+                  </span>
+                ) : null}
+                <div className="mt-1.5">
+                  <StockPriceChangeLines
+                    pct={mrvlExt.pct}
+                    changeAbs={mrvlExt.abs}
+                    currency={currency}
+                    fxRate={fxRate}
+                    showInrChange
+                    className="!items-start !text-[11px] sm:!text-xs"
+                  />
+                </div>
               </div>
-            </div>
-          )}
-          {periodPct != null && chartBars.length > 1 && (
-            <div className="sm:ml-auto">
-              <span className="text-xs text-slate-500 block">{rangeId} change</span>
-              <p className={`font-mono text-sm tabular-nums ${changeColorClass(periodPct)}`}>
+            )}
+          </div>
+          {periodPct != null && chartBars.length > 1 && rangeStartClose != null && chartLast != null && (
+            <div className="rounded-lg border border-slate-700/40 bg-slate-950/35 px-2.5 py-2">
+              <span className="text-[10px] text-slate-500 block mb-0.5">
+                Range change vs {rangeChipLabel} start
+              </span>
+              <p className="text-[11px] sm:text-xs text-slate-300 tabular-nums font-mono leading-snug break-words">
+                {formatStockPrice(rangeStartClose, currency)}
+                <span className="text-slate-500 mx-1">→</span>
+                {formatStockPrice(chartLast, currency)}
+              </p>
+              <p className={`font-mono text-sm sm:text-base tabular-nums mt-0.5 ${changeColorClass(periodPct)}`}>
                 {formatSignedChangeAmount(periodAbs, currency)}{' '}
                 <span className="text-xs opacity-90">({formatChangePct(periodPct)})</span>
               </p>
             </div>
           )}
+          <p className="text-[10px] text-slate-500 leading-snug">{basisLine}</p>
         </div>
       ) : (
         <p className="text-sm text-slate-500 mb-2">Loading MRVL…</p>
