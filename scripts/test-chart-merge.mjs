@@ -6,9 +6,55 @@ import { readFileSync } from 'node:fs';
 import { mergeLivePriceIntoBars, pickLiveChartPrice } from '../src/lib/chartLiveMerge.js';
 import {
   barIndexToSvgX,
+  clientPointToSvg,
   nearestBarIndexFromPointer,
   pctFromRangeStart,
 } from '../src/lib/mrvlChartGeometry.js';
+
+/** Linear 1:1 viewport box → viewBox width (no letterboxing). */
+function mockSvgLinear({ left = 100, width = 320, chartW = 640 }) {
+  const scale = chartW / width;
+  return {
+    viewBox: { baseVal: { width: chartW, height: 160 } },
+    getBoundingClientRect: () => ({ left, width, top: 0, height: 160 }),
+    createSVGPoint: () => ({
+      x: 0,
+      y: 0,
+      matrixTransform(matrix) {
+        return matrix.matrixTransform(this);
+      },
+    }),
+    getScreenCTM: () => ({
+      inverse: () => ({
+        matrixTransform(pt) {
+          return { x: (pt.x - left) * scale, y: pt.y };
+        },
+      }),
+    }),
+  };
+}
+
+/** Wide container: 80px side gutters — naive rect.width mapping would skew hit-test. */
+function mockSvgLetterbox({ contentOffsetX = 80, chartW = 640 }) {
+  return {
+    viewBox: { baseVal: { width: chartW, height: 160 } },
+    getBoundingClientRect: () => ({ left: 0, width: 800, top: 0, height: 160 }),
+    createSVGPoint: () => ({
+      x: 0,
+      y: 0,
+      matrixTransform(matrix) {
+        return matrix.matrixTransform(this);
+      },
+    }),
+    getScreenCTM: () => ({
+      inverse: () => ({
+        matrixTransform(pt) {
+          return { x: pt.x - contentOffsetX, y: pt.y };
+        },
+      }),
+    }),
+  };
+}
 
 const yBars = [
   { t: Date.now() - 2 * 86_400_000, close: 78 },
@@ -72,17 +118,29 @@ if (barIndexToSvgX(2, 3, 8, 100) !== 108) {
   process.exit(1);
 }
 
-const mockSvg = {
-  getBoundingClientRect: () => ({ left: 100, width: 320 }),
-};
-const midIdx = nearestBarIndexFromPointer(260, mockSvg, {
-  chartW: 640,
-  padL: 8,
-  plotW: 624,
-  barCount: 5,
-});
+const geom = { chartW: 640, padL: 8, plotW: 624, barCount: 5 };
+const mockSvg = mockSvgLinear({ left: 100, width: 320, chartW: 640 });
+const midIdx = nearestBarIndexFromPointer(260, mockSvg, geom);
 if (midIdx !== 2) {
   console.error('FAIL nearestBarIndexFromPointer', midIdx);
+  process.exit(1);
+}
+
+const letterbox = mockSvgLetterbox({ contentOffsetX: 80 });
+const firstBarClientX = 80 + barIndexToSvgX(0, 5, 8, 624);
+const letterIdx = nearestBarIndexFromPointer(firstBarClientX, letterbox, geom);
+if (letterIdx !== 0) {
+  console.error('FAIL letterbox nearestBarIndexFromPointer', letterIdx, firstBarClientX);
+  process.exit(1);
+}
+const naiveSvgX = ((firstBarClientX - 0) / 800) * 640;
+if (Math.abs(naiveSvgX - 8) < 5) {
+  console.error('FAIL letterbox test setup — naive mapping should disagree with bar x=8', naiveSvgX);
+  process.exit(1);
+}
+const mapped = clientPointToSvg(firstBarClientX, 0, letterbox, 640);
+if (!mapped || Math.abs(mapped.x - 8) > 0.5) {
+  console.error('FAIL clientPointToSvg letterbox', mapped);
   process.exit(1);
 }
 

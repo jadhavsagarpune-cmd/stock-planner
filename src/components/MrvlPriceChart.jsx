@@ -20,6 +20,7 @@ import {
   formatChartBarTime,
   nearestBarIndexFromPointer,
   pctFromRangeStart,
+  svgPointToClient,
 } from '../lib/mrvlChartGeometry';
 import StockPriceChangeLines from './StockPriceChangeLines';
 
@@ -111,6 +112,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const [chartLoading, setChartLoading] = useState(true);
   const [hoverIndex, setHoverIndex] = useState(null);
   const svgRef = useRef(null);
+  const chartWrapRef = useRef(null);
 
   const rangeSpec = useMemo(
     () =>
@@ -187,9 +189,14 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
     [plotW, chartBars.length],
   );
 
-  const updateHoverFromClientX = useCallback(
-    (clientX) => {
-      const idx = nearestBarIndexFromPointer(clientX, svgRef.current, pointerGeom);
+  const updateHoverFromClient = useCallback(
+    (clientX, clientY) => {
+      const idx = nearestBarIndexFromPointer(
+        clientX,
+        svgRef.current,
+        pointerGeom,
+        clientY,
+      );
       setHoverIndex(idx);
     },
     [pointerGeom],
@@ -197,9 +204,9 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
 
   const onChartPointerMove = useCallback(
     (e) => {
-      updateHoverFromClientX(e.clientX);
+      updateHoverFromClient(e.clientX, e.clientY);
     },
-    [updateHoverFromClientX],
+    [updateHoverFromClient],
   );
 
   const onChartPointerLeave = useCallback(() => {
@@ -209,9 +216,9 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const onChartTouchMove = useCallback(
     (e) => {
       const t = e.touches[0];
-      if (t) updateHoverFromClientX(t.clientX);
+      if (t) updateHoverFromClient(t.clientX, t.clientY);
     },
-    [updateHoverFromClientX],
+    [updateHoverFromClient],
   );
 
   useEffect(() => {
@@ -225,8 +232,17 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
     hoveredBar != null ? closeToSvgY(hoveredBar.close, PAD.t, plotH, yMin, yMax) : null;
   const hoverRangePct =
     hoveredBar != null ? pctFromRangeStart(hoveredBar.close, rangeStartClose) : null;
-  const tooltipLeftPct =
-    hoverX != null ? Math.min(92, Math.max(8, (hoverX / CHART_W) * 100)) : 50;
+  const tooltipLeftPct = useMemo(() => {
+    if (hoverX == null || hoverY == null) return 50;
+    const svg = svgRef.current;
+    const wrap = chartWrapRef.current;
+    const client = svg ? svgPointToClient(hoverX, hoverY, svg) : null;
+    const wrapRect = wrap?.getBoundingClientRect?.();
+    if (client && wrapRect?.width) {
+      return Math.min(92, Math.max(8, ((client.x - wrapRect.left) / wrapRect.width) * 100));
+    }
+    return Math.min(92, Math.max(8, (hoverX / CHART_W) * 100));
+  }, [hoverX, hoverY]);
 
   const livePrice = mrvl ? pickLiveChartPrice(mrvl) : null;
   const displayPrice = livePrice ?? mrvl?.regular_price ?? chartLast;
@@ -347,7 +363,10 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
         <p className="text-sm text-slate-500 mb-2">Loading MRVL…</p>
       )}
 
-      <div className="relative rounded-lg bg-slate-950/50 border border-amber-500/20 overflow-hidden">
+      <div
+        ref={chartWrapRef}
+        className="relative rounded-lg bg-slate-950/50 border border-amber-500/20 overflow-hidden"
+      >
         {chartLoading && (
           <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-500 z-10 bg-slate-950/40">
             Loading chart…
