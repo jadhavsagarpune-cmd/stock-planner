@@ -110,9 +110,15 @@ export function pickExtendedQuote(it, mode) {
     return { price, pct, abs };
   }
   const price = it.premarket_price ?? currentExtendedPrice(it);
-  let pct = preChangePctVsRegular(price, it.regular_price);
-  if (pct == null) pct = it.premarket_change_pct;
-  const abs = deriveExtendedChangeAbs(price, it.regular_price, pct);
+  let pct = it.premarket_change_pct;
+  if (pct == null && price != null && it.previous_close != null) {
+    const prev = Number(it.previous_close);
+    if (Number.isFinite(prev) && prev !== 0) pct = ((Number(price) - prev) / prev) * 100;
+  }
+  if (pct == null) pct = preChangePctVsRegular(price, it.regular_price);
+  const base = it.previous_close != null ? it.previous_close : it.regular_price;
+  let abs = it.premarket_change_abs;
+  if (abs == null) abs = deriveExtendedChangeAbs(price, base, pct);
   return { price, pct, abs };
 }
 

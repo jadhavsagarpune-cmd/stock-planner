@@ -82,14 +82,18 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   if (regularChangePct == null) {
     regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
   }
-  let premarketChangePct = null;
-  if (premarketPrice != null) {
-    const preBase = regularPrice ?? previousClose;
-    premarketChangePct = deriveChangePct(premarketPrice, preBase);
+  let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
+  if (premarketChangePct == null && premarketPrice != null && previousClose != null) {
+    premarketChangePct = deriveChangePct(premarketPrice, previousClose);
   }
-  if (premarketChangePct == null) {
-    premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
+  if (premarketChangePct == null && premarketPrice != null) {
+    premarketChangePct = deriveChangePct(premarketPrice, regularPrice ?? previousClose);
   }
+  let premarketChangeAbs = float(meta.preMarketChange);
+  if (premarketChangeAbs == null && premarketPrice != null && previousClose != null) {
+    premarketChangeAbs = premarketPrice - previousClose;
+  }
+  premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
 
   const marketState = String(meta.marketState || '').trim().toUpperCase();
   let currentPrice = float(meta.currentPrice);
@@ -127,7 +131,13 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     && currentPrice !== regularPrice
   ) {
     premarketPrice = currentPrice;
-    premarketChangePct = deriveChangePct(premarketPrice, regularPrice);
+    if (premarketChangePct == null && previousClose != null) {
+      premarketChangePct = deriveChangePct(premarketPrice, previousClose);
+    }
+    if (premarketChangeAbs == null && previousClose != null) {
+      premarketChangeAbs = premarketPrice - previousClose;
+    }
+    premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
   }
   if (
     premarketPrice == null
@@ -138,7 +148,9 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     && postmarketPrice == null
   ) {
     premarketPrice = currentPrice;
-    premarketChangePct = deriveChangePct(premarketPrice, regularPrice);
+    if (premarketChangePct == null && previousClose != null) {
+      premarketChangePct = deriveChangePct(premarketPrice, previousClose);
+    }
   }
 
   // Yahoo chart v8 often omits postMarketPrice; fulldayPrice is the live extended tick (see MRVL meta).
@@ -155,10 +167,15 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     if (premarketPrice == null) premarketPrice = fulldayPrice;
   }
 
-  let postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
+  let postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
   if (postmarketChangePct == null) {
-    postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
+    postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
   }
+  let postmarketChangeAbs = float(meta.postMarketChange);
+  if (postmarketChangeAbs == null && postmarketPrice != null && regularPrice != null) {
+    postmarketChangeAbs = postmarketPrice - regularPrice;
+  }
+  postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
 
   const regularChangeAbs = deriveRegularChangeAbs(
     regularPrice,
@@ -179,8 +196,10 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     current_price: currentPrice,
     premarket_price: premarketPrice,
     premarket_change_pct: premarketChangePct,
+    premarket_change_abs: premarketChangeAbs,
     postmarket_price: postmarketPrice,
     postmarket_change_pct: postmarketChangePct,
+    postmarket_change_abs: postmarketChangeAbs,
     fullday_price: fulldayPrice,
     source: 'yahoo_finance',
   };
@@ -215,8 +234,10 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
           regular_change_pct: quote.regular_change_pct,
           premarket_price: quote.premarket_price,
           premarket_change_pct: quote.premarket_change_pct,
+          premarket_change_abs: quote.premarket_change_abs,
           postmarket_price: quote.postmarket_price,
           postmarket_change_pct: quote.postmarket_change_pct,
+          postmarket_change_abs: quote.postmarket_change_abs,
           current_price: quote.current_price,
           market_state: quote.market_state,
           exchange: quote.exchange,

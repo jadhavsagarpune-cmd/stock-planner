@@ -24,17 +24,9 @@ function usDateKey(ms) {
   }).format(new Date(ms));
 }
 
-/** Live tick for chart overlay (matches heatmap current price preference). */
-export function pickLiveChartPrice(quote) {
-  if (!quote) return null;
-  const p =
-    quote.current_price
-    ?? quote.regular_price
-    ?? quote.fullday_price
-    ?? quote.postmarket_price
-    ?? quote.premarket_price;
-  return float(p);
-}
+import { pickLiveChartPrice } from './sessionQuote.js';
+
+export { pickActiveSessionPrice, pickLiveChartPrice } from './sessionQuote.js';
 
 /**
  * Extend the series through the active session using the polled quote (chart fetch is range-static).
