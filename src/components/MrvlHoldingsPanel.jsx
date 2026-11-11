@@ -1,5 +1,10 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { formatStockPrice, formatInr } from '../lib/stockFormat';
+import { pickLiveChartPrice } from '../lib/chartLiveMerge';
+import {
+  mrvlHoldingsValuationPrice,
+  mrvlLiveVsCustomDelta,
+} from '../lib/holdingsPriceCompare';
+import { formatChangePct, formatStockPrice, formatInr } from '../lib/stockFormat';
 import { loadMrvlCustomUsd, saveMrvlCustomUsd } from '../lib/holdingsStorage';
 
 const PRICE_DELTA_EPS = 0.005;
@@ -51,8 +56,10 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
 
   const shareCount = parsePositiveNumber(shares);
   const customPrice = parsePositiveNumber(customUsd);
-  const liveUsd = mrvl?.regular_price != null ? Number(mrvl.regular_price) : null;
-  const priceUsd = customPrice ?? liveUsd;
+  const liveUsd = mrvl ? pickLiveChartPrice(mrvl) : null;
+  const currency = mrvl?.currency || 'USD';
+  const priceUsd = mrvlHoldingsValuationPrice(customPrice, liveUsd);
+  const priceDelta = mrvlLiveVsCustomDelta(customPrice, liveUsd, { eps: PRICE_DELTA_EPS });
   const fxRate = usdInr?.rate != null ? Number(usdInr.rate) : null;
   const fxTime = usdInr?.fetched_at
     ? new Date(usdInr.fetched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -145,7 +152,7 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
               MRVL holdings (INR)
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Live MRVL × shares × USD/INR spot
+              Compare live MRVL to your cost basis · INR uses custom price when set
             </p>
           </div>
           <button
@@ -159,6 +166,51 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
         </div>
 
         <div className="px-4 py-3 space-y-3">
+          <div className="rounded-lg border border-amber-500/25 bg-slate-950/80 px-3 py-3 space-y-2">
+            <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 min-[380px]:gap-4">
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
+                  Live price
+                </div>
+                <div className="mt-0.5 font-mono text-lg sm:text-xl font-semibold tabular-nums text-white break-all">
+                  {liveUsd != null ? formatStockPrice(liveUsd, currency) : '—'}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                  Current MRVL quote (same as chart)
+                </p>
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-wide text-violet-300/90 font-medium">
+                  Custom price
+                </div>
+                <div className="mt-0.5 font-mono text-lg sm:text-xl font-semibold tabular-nums text-violet-100 break-all">
+                  {customPrice != null ? (
+                    formatStockPrice(customPrice, currency)
+                  ) : (
+                    <span className="text-base font-normal text-slate-500">Not set</span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
+                  Optional override for your entry / average
+                </p>
+              </div>
+            </div>
+            {priceDelta && (
+              <div
+                className={`flex flex-col sm:flex-row sm:flex-wrap sm:items-baseline gap-x-2 gap-y-0.5 pt-2 border-t border-slate-700/60 text-sm font-mono tabular-nums ${deltaTone(priceDelta.deltaUsd)}`}
+              >
+                <span className="text-[10px] uppercase tracking-wide text-slate-500 font-sans font-medium shrink-0">
+                  Custom vs live
+                </span>
+                <span className="shrink-0">{formatSignedUsd(priceDelta.deltaUsd)}</span>
+                <span className="text-slate-400 shrink-0">{formatChangePct(priceDelta.deltaPct)}</span>
+                {priceDelta.same && (
+                  <span className="text-[10px] text-slate-500 font-sans">(matches live)</span>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="rounded-lg bg-slate-950/60 border border-slate-700/50 px-3 py-2 text-xs text-slate-400 space-y-1">
             <div className="flex justify-between gap-2">
               <span>USD/INR used</span>
@@ -172,16 +224,16 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
             {usdInrErr && fxRate == null && (
               <p className="text-[10px] text-amber-300/80">{usdInrErr}</p>
             )}
-            <div className="flex justify-between gap-2">
-              <span>MRVL price (USD)</span>
-              <span className="font-mono tabular-nums text-slate-200 text-right">
-                {customPrice != null ? (
+            <div className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:gap-2">
+              <span>Valuation price (INR math)</span>
+              <span className="font-mono tabular-nums text-slate-200 sm:text-right">
+                {priceUsd != null ? (
                   <>
-                    {formatStockPrice(customPrice, 'USD')}
-                    <span className="text-violet-300/90 ml-1 font-sans text-[10px]">custom</span>
+                    {formatStockPrice(priceUsd, currency)}
+                    <span className="text-slate-500 ml-1 font-sans text-[10px]">
+                      {customPrice != null ? 'custom' : 'live'}
+                    </span>
                   </>
-                ) : liveUsd != null ? (
-                  formatStockPrice(liveUsd, mrvl?.currency || 'USD')
                 ) : (
                   '—'
                 )}
@@ -223,10 +275,10 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
             />
           </label>
 
-          {priceComparison && (
+          {priceComparison && customPrice != null && (
             <div className="rounded-lg border border-slate-600/50 bg-slate-950/60 px-3 py-2.5 space-y-2 text-xs">
               <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                Custom vs live
+                Position vs live quote
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-slate-400">Per share (USD)</span>
@@ -324,6 +376,13 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
             )}
           </div>
         </div>
+
+        <p className="px-4 pb-1 text-[10px] text-slate-500 leading-snug">
+          INR total and per-share rows use{' '}
+          <span className="text-slate-400">custom price</span> when set; otherwise{' '}
+          <span className="text-slate-400">live quote</span>. Sector heatmap and watchlist
+          tables use live quotes only (not your custom price).
+        </p>
 
         <div className="px-4 pb-4">
           <button
