@@ -89,21 +89,19 @@ export function pickActiveSessionPrice(quote, now = new Date()) {
   return regular ?? previousClose ?? current;
 }
 
-/** User-facing headline label for the active price. */
-export function activeSessionPriceLabel(quote, now = new Date()) {
+/** User-facing headline label — one session name only (chip carries PRE/REG/POST). */
+export function sessionHeadlineLabel(quote, now = new Date()) {
   if (!quote) return 'Price';
   const session = resolveActiveSession(quote, now);
-  const chip = marketStatusChip(quote, now);
-  const live = pickActiveSessionPrice(quote, now);
-  const regular = float(quote.regular_price);
+  if (session === 'pre') return 'Pre-market';
+  if (session === 'post') return 'After-hours';
+  if (session === 'regular') return 'Regular session';
+  return 'At close';
+}
 
-  if (session === 'pre') return 'Pre-market · live';
-  if (session === 'post') return 'After-hours · live';
-  if (session === 'regular') return 'Regular session · live';
-  if (chip === 'CLOSED' && live != null && regular != null && Math.abs(live - regular) < 0.005) {
-    return 'Last close';
-  }
-  return 'Last close';
+/** @deprecated use sessionHeadlineLabel */
+export function activeSessionPriceLabel(quote, now = new Date()) {
+  return sessionHeadlineLabel(quote, now);
 }
 
 /**
@@ -126,7 +124,7 @@ export function pickSessionDayChange(quote, now = new Date()) {
     if (abs == null && price != null && previousClose != null) abs = price - previousClose;
     abs = deriveExtendedChangeAbs(price, previousClose, pct) ?? abs;
     if (pct == null && abs == null) return null;
-    return { pct, abs, referenceLabel: 'Day change · vs prior close' };
+    return { pct, abs, referenceLabel: 'Pre-market vs prior close' };
   }
 
   if (session === 'post') {
@@ -142,20 +140,20 @@ export function pickSessionDayChange(quote, now = new Date()) {
     let abs = float(quote.postmarket_change_abs);
     if (abs == null) abs = deriveExtendedChangeAbs(price, regular, pct);
     if (pct == null && abs == null) return null;
-    return { pct, abs, referenceLabel: 'Day change · vs regular close' };
+    return { pct, abs, referenceLabel: 'After-hours vs regular close' };
   }
 
   if (session === 'regular') {
     const pct = float(quote.regular_change_pct);
     const abs = deriveRegularChangeAbsFromRow(quote);
     if (pct == null && abs == null) return null;
-    return { pct, abs, referenceLabel: 'Day change · vs prior close' };
+    return { pct, abs, referenceLabel: 'Day change vs prior close' };
   }
 
   const pct = float(quote.regular_change_pct);
   const abs = deriveRegularChangeAbsFromRow(quote);
   if (pct == null && abs == null) return null;
-  return { pct, abs, referenceLabel: 'Last session · vs prior close' };
+  return { pct, abs, referenceLabel: 'At close vs prior close' };
 }
 
 /** @deprecated chart path — use pickActiveSessionPrice */

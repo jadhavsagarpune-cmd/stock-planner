@@ -8,6 +8,7 @@ import {
   pickLiveChartPrice,
   pickSessionDayChange,
   resolveActiveSession,
+  sessionHeadlineLabel,
 } from '../src/lib/sessionQuote.js';
 
 /** Wed 7:00 ET — pre-market */
@@ -43,6 +44,10 @@ if (pickLiveChartPrice(preUpQuote, PRE_MORNING) !== 80) {
   process.exit(1);
 }
 
+if (sessionHeadlineLabel(preUpQuote, PRE_MORNING) !== 'Pre-market') {
+  console.error('FAIL sessionHeadlineLabel PRE (no duplicate live)');
+  process.exit(1);
+}
 const day = pickSessionDayChange(preUpQuote, PRE_MORNING);
 if (!day || day.pct <= 0 || day.abs <= 0) {
   console.error('FAIL pickSessionDayChange must use pre gain not regular red', day);
@@ -50,6 +55,10 @@ if (!day || day.pct <= 0 || day.abs <= 0) {
 }
 if (day.pct === preUpQuote.regular_change_pct) {
   console.error('FAIL pickSessionDayChange must not equal regular_change_pct in PRE');
+  process.exit(1);
+}
+if (day.referenceLabel !== 'Pre-market vs prior close') {
+  console.error('FAIL pickSessionDayChange PRE referenceLabel', day.referenceLabel);
   process.exit(1);
 }
 
@@ -74,6 +83,10 @@ if (marketStatusChip(regQuote, REG_MIDDAY) !== 'REG') {
 }
 if (pickActiveSessionPrice(regQuote, REG_MIDDAY) !== 79.6) {
   console.error('FAIL pickActiveSessionPrice REG live');
+  process.exit(1);
+}
+if (sessionHeadlineLabel(regQuote, REG_MIDDAY) !== 'Regular session') {
+  console.error('FAIL sessionHeadlineLabel REG');
   process.exit(1);
 }
 const regDay = pickSessionDayChange(regQuote, REG_MIDDAY);

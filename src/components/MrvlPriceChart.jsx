@@ -24,10 +24,10 @@ import {
 import StockPriceChangeLines from './StockPriceChangeLines';
 import MarketStatusChip from './MarketStatusChip';
 import {
-  activeSessionPriceLabel,
   pickActiveSessionPrice,
   pickSessionDayChange,
   resolveActiveSession,
+  sessionHeadlineLabel,
 } from '../lib/sessionQuote';
 
 const CHART_W = 640;
@@ -72,9 +72,10 @@ function buildArea(bars, plotW, plotH, yMin, yMax) {
 }
 
 function chartPriceBasisLine(mrvl) {
-  const live = mrvl ? pickActiveSessionPrice(mrvl) : null;
-  return live != null
-    ? 'Chart last bar uses live quote when polling.'
+  const price = mrvl ? pickActiveSessionPrice(mrvl) : null;
+  const headline = mrvl ? sessionHeadlineLabel(mrvl) : null;
+  return price != null && headline
+    ? `Chart last bar tracks ${headline.toLowerCase()} when polling.`
     : 'Chart from Yahoo closes; intraday ranges refresh about every 60s.';
 }
 
@@ -221,7 +222,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const sessionDay = mrvl ? pickSessionDayChange(mrvl) : null;
   const displayPrice = livePrice ?? mrvl?.regular_price ?? chartLast;
   const currency = mrvl?.currency ?? 'USD';
-  const headlineLabel = mrvl ? activeSessionPriceLabel(mrvl) : 'Price';
+  const headlineLabel = mrvl ? sessionHeadlineLabel(mrvl) : 'Price';
   const rangeChipLabel = rangeSpec.label;
   const basisLine = chartPriceBasisLine(mrvl);
   const headlineTone =

@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
-  activeSessionPriceLabel,
   pickActiveSessionPrice,
   pickSessionDayChange,
+  sessionHeadlineLabel,
 } from '../lib/sessionQuote';
 import MarketStatusChip from './MarketStatusChip';
 import {
@@ -64,7 +64,7 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
   const customPrice = parsePositiveNumber(customUsd);
   const liveUsd = mrvl ? pickActiveSessionPrice(mrvl) : null;
   const sessionDay = mrvl ? pickSessionDayChange(mrvl) : null;
-  const liveLabel = mrvl ? activeSessionPriceLabel(mrvl) : 'Live price';
+  const headlineLabel = mrvl ? sessionHeadlineLabel(mrvl) : 'Quote';
   const currency = mrvl?.currency || 'USD';
   const priceUsd = mrvlHoldingsValuationPrice(customPrice, liveUsd);
   const priceDelta = mrvlLiveVsCustomDelta(customPrice, liveUsd, { eps: PRICE_DELTA_EPS });
@@ -179,7 +179,7 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 min-[380px]:gap-4">
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
-                  {liveLabel}
+                  {headlineLabel}
                 </div>
                 <div className="mt-0.5 font-mono text-lg sm:text-xl font-semibold tabular-nums text-white break-all">
                   {liveUsd != null ? formatStockPrice(liveUsd, currency) : '—'}
@@ -294,7 +294,7 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
               inputMode="decimal"
               value={customUsd}
               onChange={(e) => setCustomUsd(e.target.value)}
-              placeholder={liveUsd != null ? `Live ${liveUsd.toFixed(2)}` : 'Override share price'}
+              placeholder={liveUsd != null ? `${liveUsd.toFixed(2)}` : 'Override share price'}
               className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm font-mono tabular-nums text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
             />
           </label>
