@@ -3,7 +3,7 @@ import { ALL_WATCHLIST_ENTRIES } from './data/watchlist';
 import { fetchMrvlQuote, fetchUsdInrRate, fetchWatchlistQuotes } from './lib/quotes';
 import { fetchEtfBenchmarks } from './lib/etfBenchmarks';
 import { downloadWatchlistCsv } from './lib/exportWatchlistCsv';
-import { formatMrvlInrHint, formatStockPrice, pickExtendedQuote } from './lib/stockFormat';
+import { formatMrvlInrHint, pickExtendedQuote } from './lib/stockFormat';
 import {
   extendedColumnLabel,
   isExtendedColumnMuted,
@@ -17,9 +17,16 @@ import {
 } from './lib/stockPriceAlerts';
 import WatchlistSections from './components/WatchlistSections';
 import SectorHeatmap from './components/SectorHeatmap';
-import StockPriceChangeLines from './components/StockPriceChangeLines';
+import MrvlPriceChart from './components/MrvlPriceChart';
 import MrvlHoldingsPanel from './components/MrvlHoldingsPanel';
 import { clearLegacyMrvlSharesStorage } from './lib/holdingsStorage';
+import {
+  baselineNeedsDailyHistory,
+  loadHeatmapBaselineId,
+  saveHeatmapBaselineId,
+} from './lib/heatmapBaselines';
+import { prefetchDailyBarsForSymbols } from './lib/historicalQuotes';
+import { recordQuoteSnapshots } from './lib/priceHistoryStore';
 
 const MRVL_POLL_MS = 60_000;
 const EXTENDED_WATCHLIST_POLL_MS = 60_000;
@@ -37,6 +44,8 @@ export default function App() {
   const [lastRefresh, setLastRefresh] = useState(null);
   const [holdingsOpen, setHoldingsOpen] = useState(false);
   const [etfBenchmarks, setEtfBenchmarks] = useState(null);
+  const [heatmapBaseline, setHeatmapBaseline] = useState(() => loadHeatmapBaselineId());
+  const [dailyBySymbol, setDailyBySymbol] = useState(() => new Map());
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
@@ -47,6 +56,11 @@ export default function App() {
       ]);
       setEtfBenchmarks(etfs);
       setLastRefresh(new Date());
+      void recordQuoteSnapshots(list);
+      const symbols = ALL_WATCHLIST_ENTRIES.map(([, s]) => s);
+      if (baselineNeedsDailyHistory(heatmapBaseline)) {
+        void prefetchDailyBarsForSymbols(symbols, { onProgress: setDailyBySymbol });
+      }
       if (notifyOn) {
         for (const it of list) {
           if (it.status !== 'done') continue;
@@ -60,7 +74,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [notifyOn]);
+  }, [notifyOn, heatmapBaseline]);
 
   const refreshMrvl = useCallback(async () => {
     try {
@@ -91,6 +105,22 @@ export default function App() {
 
   useEffect(() => {
     clearLegacyMrvlSharesStorage();
+  }, []);
+
+  useEffect(() => {
+    const symbols = ALL_WATCHLIST_ENTRIES.map(([, s]) => s);
+    void prefetchDailyBarsForSymbols(symbols, { onProgress: setDailyBySymbol });
+  }, []);
+
+  useEffect(() => {
+    if (!baselineNeedsDailyHistory(heatmapBaseline)) return;
+    const symbols = ALL_WATCHLIST_ENTRIES.map(([, s]) => s);
+    void prefetchDailyBarsForSymbols(symbols, { onProgress: setDailyBySymbol });
+  }, [heatmapBaseline]);
+
+  const onHeatmapBaselineChange = useCallback((id) => {
+    saveHeatmapBaselineId(id);
+    setHeatmapBaseline(id);
   }, []);
 
   useEffect(() => {
@@ -151,6 +181,17 @@ export default function App() {
 
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-8 safe-area-pb">
+      <MrvlPriceChart
+        mrvl={mrvl}
+        mrvlErr={mrvlErr}
+        fxRate={fxRate}
+        mrvlInrHint={mrvlInrHint}
+        extMuted={extMuted}
+        extLabel={extLabel}
+        mrvlExt={mrvlExt}
+        mrvlExtInrHint={mrvlExtInrHint}
+      />
+
       <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-white">Stock planner</h1>
@@ -210,64 +251,13 @@ export default function App() {
         </div>
       </header>
 
-      <section className="mb-4 rounded-xl border border-slate-700 bg-slate-900/80 p-3 sm:p-4">
-        <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1">Marvell (MRVL)</div>
-        {mrvlErr ? (
-          <p className="text-sm text-amber-300">{mrvlErr}</p>
-        ) : mrvl ? (
-          <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
-            <div>
-              <span className="text-xs text-slate-500 block">Current</span>
-              <div className="flex flex-col items-start gap-0.5">
-                <span className="font-mono text-lg font-semibold tabular-nums">
-                  {formatStockPrice(mrvl.regular_price, mrvl.currency)}
-                  {mrvlInrHint && (
-                    <span className="text-sm font-normal text-violet-300/90 ml-1.5">
-                      ({mrvlInrHint})
-                    </span>
-                  )}
-                </span>
-                <StockPriceChangeLines
-                  quote={mrvl}
-                  pct={mrvl.regular_change_pct}
-                  currency={mrvl.currency}
-                  fxRate={fxRate}
-                  showInrChange
-                  className="!items-start"
-                />
-              </div>
-            </div>
-            {!extMuted && mrvlExt?.price != null && (
-              <div>
-                <span className="text-xs text-slate-500 block">{extLabel}</span>
-                <div className="flex flex-col items-start gap-0.5">
-                  <span className="font-mono text-violet-200 font-semibold tabular-nums">
-                    {formatStockPrice(mrvlExt.price, mrvl.currency)}
-                    {mrvlExtInrHint && (
-                      <span className="text-sm font-normal text-violet-300/80 ml-1.5">
-                        ({mrvlExtInrHint})
-                      </span>
-                    )}
-                  </span>
-                  <StockPriceChangeLines
-                    pct={mrvlExt.pct}
-                    changeAbs={mrvlExt.abs}
-                    currency={mrvl.currency}
-                    fxRate={fxRate}
-                    showInrChange
-                    className="!items-start"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">Loading MRVL…</p>
-        )}
-      </section>
-
       <div className="mb-4">
-        <SectorHeatmap items={items} sessionMode={extendedMode} />
+        <SectorHeatmap
+          items={items}
+          baselineId={heatmapBaseline}
+          onBaselineChange={onHeatmapBaselineChange}
+          dailyBySymbol={dailyBySymbol}
+        />
       </div>
 
       <section className="rounded-xl border border-slate-700 bg-slate-900/80 overflow-hidden">

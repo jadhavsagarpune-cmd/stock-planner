@@ -6,6 +6,14 @@ import {
 } from '../lib/stockMarketSession';
 import { exchangeHint } from '../data/watchlist';
 import StockPriceChangeLines from './StockPriceChangeLines';
+import MarvellMarker from './MarvellMarker';
+import {
+  MARVELL_NAME_TEXT,
+  MARVELL_ROW_BG,
+  MARVELL_ROW_BORDER,
+  MARVELL_TICKER_CHIP,
+  isMarvellCompany,
+} from '../lib/marvellBrand';
 
 function extendedColumnTitle(mode) {
   if (mode === 'regular') return 'Extended hours hidden during US regular session';
@@ -25,7 +33,7 @@ function QuoteRow({ it, extendedMode, fxRate }) {
   const market = exchangeHint(it.name);
   const columnMuted = isExtendedColumnMuted(extendedMode);
   const ext = pickExtendedQuote(it, extendedMode);
-  const isMrvl = symbol.toUpperCase() === 'MRVL';
+  const isMrvl = isMarvellCompany(symbol) || isMarvellCompany(displayName) || isMarvellCompany(full);
   const inrHint =
     isMrvl && fxRate != null && it.regular_price != null
       ? formatMrvlInrHint(it.regular_price, fxRate)
@@ -34,22 +42,33 @@ function QuoteRow({ it, extendedMode, fxRate }) {
     isMrvl && fxRate != null && ext?.price != null ? formatMrvlInrHint(ext.price, fxRate) : null;
 
   return (
-    <tr className="border-t border-slate-800/60">
+    <tr
+      className={`border-t border-slate-800/60 ${
+        isMrvl ? `${MARVELL_ROW_BG} ${MARVELL_ROW_BORDER}` : ''
+      }`}
+    >
       <td className="py-2 pr-2 text-sm leading-snug">
         <a
           href={googleUrl}
           target="_blank"
           rel="noopener noreferrer"
           className={`block cursor-pointer hover:underline ${
-            rowMuted ? 'text-slate-500' : 'text-slate-200'
+            rowMuted ? 'text-slate-500' : isMrvl ? MARVELL_NAME_TEXT : 'text-slate-200'
           }`}
           title={`Search ${symbol} on Google · ${market}`}
         >
           {it.status === 'pending' && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-500 mr-2 align-middle animate-pulse" />
           )}
+          {isMrvl && <MarvellMarker className="inline-block mr-1.5 align-middle" size={13} />}
           <span className="font-medium block sm:inline">{displayName}</span>
-          <span className="text-slate-500 text-xs block sm:inline sm:ml-1.5 font-mono">{ticker}</span>
+          {isMrvl ? (
+            <span className={`${MARVELL_TICKER_CHIP} text-xs block sm:inline sm:ml-1.5`}>
+              {ticker}
+            </span>
+          ) : (
+            <span className="text-slate-500 text-xs block sm:inline sm:ml-1.5 font-mono">{ticker}</span>
+          )}
           <span className="text-slate-600 text-[10px] block">{market}</span>
         </a>
       </td>
@@ -110,8 +129,8 @@ function QuoteRow({ it, extendedMode, fxRate }) {
 
 function pinMrvlFirst(items) {
   const sym = (it) => String(it.name || '').trim().toUpperCase();
-  const mrvl = items.filter((it) => sym(it) === 'MRVL');
-  const rest = items.filter((it) => sym(it) !== 'MRVL');
+  const mrvl = items.filter((it) => isMarvellCompany(sym(it)));
+  const rest = items.filter((it) => !isMarvellCompany(sym(it)));
   return [...mrvl, ...rest];
 }
 

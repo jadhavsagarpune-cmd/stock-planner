@@ -1,4 +1,5 @@
 import { pickExtendedQuote } from './stockFormat';
+import { isMarvellCompany } from './marvellBrand';
 
 export const SORT_OPTIONS = [
   { value: 'default', label: 'Default order' },
@@ -32,8 +33,8 @@ export function sortWatchlistItems(items, sortKey, extendedMode, { pinMrvlFirst 
   const list = [...items];
   if (sortKey === 'default') {
     if (pinMrvlFirst) {
-      const mrvl = list.filter((it) => symKey(it) === 'MRVL');
-      const rest = list.filter((it) => symKey(it) !== 'MRVL');
+      const mrvl = list.filter((it) => isMarvellCompany(symKey(it)));
+      const rest = list.filter((it) => !isMarvellCompany(symKey(it)));
       return [...mrvl, ...rest];
     }
     return list;

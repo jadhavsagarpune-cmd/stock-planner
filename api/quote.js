@@ -21,7 +21,11 @@ export default async function handler(req, res) {
     return;
   }
 
-  const url = `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(symbol))}?interval=1m&range=1d`;
+  const rawRange = req.query?.range;
+  const rawInterval = req.query?.interval;
+  const range = (Array.isArray(rawRange) ? rawRange[0] : rawRange || '1d').trim();
+  const interval = (Array.isArray(rawInterval) ? rawInterval[0] : rawInterval || '1m').trim();
+  const url = `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(symbol))}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
 
   try {
     const upstream = await fetch(url, { headers: UPSTREAM_HEADERS });

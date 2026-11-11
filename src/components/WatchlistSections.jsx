@@ -18,6 +18,15 @@ import {
 } from '../lib/watchlistAnalytics';
 import { ETF_BENCHMARKS, etfPctColorClass, formatEtfChipPct } from '../lib/etfBenchmarks';
 import StockPriceChangeLines from './StockPriceChangeLines';
+import MarvellMarker from './MarvellMarker';
+import {
+  MARVELL_MOVER_CHIP,
+  MARVELL_NAME_TEXT,
+  MARVELL_ROW_BG,
+  MARVELL_ROW_BORDER,
+  MARVELL_TICKER_CHIP,
+  isMarvellCompany,
+} from '../lib/marvellBrand';
 
 function extendedColumnTitle(mode) {
   if (mode === 'regular') return 'Extended hours hidden during US regular session';
@@ -37,7 +46,7 @@ function QuoteRow({ it, extendedMode, fxRate, compact }) {
   const market = exchangeHint(it.name);
   const columnMuted = isExtendedColumnMuted(extendedMode);
   const ext = pickExtendedQuote(it, extendedMode);
-  const isMrvl = symbol.toUpperCase() === 'MRVL';
+  const isMrvl = isMarvellCompany(symbol) || isMarvellCompany(displayName) || isMarvellCompany(full);
   const inrHint =
     isMrvl && fxRate != null && it.regular_price != null
       ? formatMrvlInrHint(it.regular_price, fxRate)
@@ -46,24 +55,35 @@ function QuoteRow({ it, extendedMode, fxRate, compact }) {
     isMrvl && fxRate != null && ext?.price != null ? formatMrvlInrHint(ext.price, fxRate) : null;
 
   return (
-    <tr className={`border-t border-slate-800/60 ${compact ? 'text-xs' : ''}`}>
+    <tr
+      className={`border-t border-slate-800/60 ${compact ? 'text-xs' : ''} ${
+        isMrvl ? `${MARVELL_ROW_BG} ${MARVELL_ROW_BORDER}` : ''
+      }`}
+    >
       <td className={`${compact ? 'py-1.5' : 'py-2'} pr-2 text-sm leading-snug`}>
         <a
           href={googleUrl}
           target="_blank"
           rel="noopener noreferrer"
           className={`block cursor-pointer hover:underline ${
-            rowMuted ? 'text-slate-500' : 'text-slate-200'
+            rowMuted ? 'text-slate-500' : isMrvl ? MARVELL_NAME_TEXT : 'text-slate-200'
           }`}
           title={`Search ${symbol} on Google · ${market}`}
         >
           {it.status === 'pending' && (
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-500 mr-2 align-middle animate-pulse" />
           )}
+          {isMrvl && <MarvellMarker className="inline-block mr-1.5 align-middle" size={13} />}
           <span className={`font-medium block sm:inline ${compact ? 'text-xs' : ''}`}>
             {displayName}
           </span>
-          <span className="text-slate-500 text-xs block sm:inline sm:ml-1.5 font-mono">{ticker}</span>
+          {isMrvl ? (
+            <span className={`${MARVELL_TICKER_CHIP} text-xs block sm:inline sm:ml-1.5`}>
+              {ticker}
+            </span>
+          ) : (
+            <span className="text-slate-500 text-xs block sm:inline sm:ml-1.5 font-mono">{ticker}</span>
+          )}
           {!compact && <span className="text-slate-600 text-[10px] block">{market}</span>}
         </a>
       </td>
@@ -128,8 +148,10 @@ function MoverChip({ label, it, tone }) {
   if (!it) return null;
   const sym = String(it.name || '').trim();
   const pct = formatChangePct(it.regular_change_pct);
-  const toneClass =
-    tone === 'up'
+  const marvell = isMarvellCompany(sym) || isMarvellCompany(it.label);
+  const toneClass = marvell
+    ? MARVELL_MOVER_CHIP
+    : tone === 'up'
       ? 'border-emerald-500/30 bg-emerald-950/40 text-emerald-200'
       : 'border-red-500/30 bg-red-950/40 text-red-200';
   return (
@@ -138,6 +160,7 @@ function MoverChip({ label, it, tone }) {
       title={`${label}: ${it.label || sym}`}
     >
       <span className="text-slate-500 uppercase tracking-wide">{label}</span>
+      {marvell && <MarvellMarker size={11} />}
       <span className="font-mono font-semibold">{sym}</span>
       {pct && <span>{pct}</span>}
     </span>

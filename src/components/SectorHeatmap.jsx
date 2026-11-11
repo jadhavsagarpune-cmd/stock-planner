@@ -1,6 +1,14 @@
 import { ALL_WATCHLIST_ENTRIES } from '../data/watchlist';
-import { formatChangePct, formatHeatmapTileTitle, pickHeatmapChangePct } from '../lib/stockFormat';
-import { heatmapSessionMeta } from '../lib/stockMarketSession';
+import { formatChangePct } from '../lib/stockFormat';
+import {
+  HEATMAP_BASELINES,
+  baselineNeedsDailyHistory,
+  formatHeatmapTileTitleForBaseline,
+  heatmapBaselineMeta,
+  pickHeatmapChangePctForBaseline,
+} from '../lib/heatmapBaselines';
+import { MARVELL_ACCENT_RING, isMarvellCompany } from '../lib/marvellBrand';
+import { MarvellTickerBadge } from './MarvellMarker';
 
 function heatColor(pct) {
   const n = Number(pct);
@@ -68,19 +76,54 @@ function googleStockSearchUrl(symbol) {
   return `https://www.google.com/search?q=${encodeURIComponent(`${sym} stock`)}`;
 }
 
-function HeatmapTile({ sym, label, it, pct, sessionMode, sessionBadge }) {
-  const title = formatHeatmapTileTitle(label, it, pct, sessionMode, sessionBadge);
+function HeatmapBaselinePicker({ baselineId, onBaselineChange }) {
+  if (!onBaselineChange) return null;
+  return (
+    <div
+      className="flex flex-wrap gap-1 justify-end"
+      role="group"
+      aria-label="Heatmap reference period"
+    >
+      {HEATMAP_BASELINES.map((b) => {
+        const active = b.id === baselineId;
+        return (
+          <button
+            key={b.id}
+            type="button"
+            onClick={() => onBaselineChange(b.id)}
+            className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold tracking-wide transition-colors ${
+              active
+                ? 'bg-violet-600/35 text-violet-100 border-violet-500/50'
+                : 'bg-slate-900/60 text-slate-400 border-slate-700/80 hover:border-slate-500/60 hover:text-slate-200'
+            }`}
+            title={b.subtitle}
+          >
+            {b.badge}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function HeatmapTile({ sym, label, it, pct, baselineId, daily }) {
+  const title = formatHeatmapTileTitleForBaseline(label, it, pct, baselineId, daily);
   const href = googleStockSearchUrl(sym);
+  const marvell = isMarvellCompany(sym) || isMarvellCompany(label);
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       title={`${title} · Search on Google`}
-      className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums no-underline hover:underline cursor-pointer ${heatColor(pct)}`}
+      className={`inline-flex flex-col items-center justify-center min-w-[2.75rem] px-1 py-1 rounded border text-[9px] font-mono tabular-nums no-underline hover:underline cursor-pointer ${heatColor(pct)} ${marvell ? MARVELL_ACCENT_RING : ''}`}
     >
-      <span className="text-slate-200 font-semibold">{sym.replace('.KS', '')}</span>
-      <span className="text-slate-400 scale-90">
+      {marvell ? (
+        <MarvellTickerBadge symbol={sym} className="scale-90" />
+      ) : (
+        <span className="text-slate-200 font-semibold">{sym.replace('.KS', '')}</span>
+      )}
+      <span className={`scale-90 ${marvell ? 'text-amber-200/80' : 'text-slate-400'}`}>
         {it?.status === 'done' ? formatChangePct(pct) ?? '—' : '…'}
       </span>
     </a>
@@ -88,11 +131,18 @@ function HeatmapTile({ sym, label, it, pct, sessionMode, sessionBadge }) {
 }
 
 /**
- * Compact grid of all watchlist symbols clustered by session % change band.
- * @param {{ items: object[], sessionMode: 'regular' | 'pre' | 'post' }} props
+ * Compact grid of all watchlist symbols clustered by % change vs selected baseline.
+ * @param {{ items: object[], baselineId: string, onBaselineChange: (id: string) => void, dailyBySymbol: Map }} props
  */
-export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
-  const session = heatmapSessionMeta(sessionMode);
+export default function SectorHeatmap({
+  items,
+  baselineId = 'pre',
+  onBaselineChange,
+  dailyBySymbol = null,
+}) {
+  const session = heatmapBaselineMeta(baselineId);
+  const needsHistory = baselineNeedsDailyHistory(baselineId);
+  const historyReady = !needsHistory || (dailyBySymbol && dailyBySymbol.size > 0);
   const bySym = new Map();
   for (const it of items) {
     bySym.set(String(it.name || '').trim().toUpperCase(), it);
@@ -103,7 +153,8 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
   const rows = ALL_WATCHLIST_ENTRIES.map(([label, symbol]) => {
     const sym = String(symbol).trim().toUpperCase();
     const it = bySym.get(sym);
-    const pct = pickHeatmapChangePct(it, sessionMode);
+    const daily = dailyBySymbol?.get(sym) ?? null;
+    const pct = pickHeatmapChangePctForBaseline(it, baselineId, daily);
     const n = Number(pct);
     const sortKey = pct == null || Number.isNaN(n) ? 999 : n;
     return { label, sym, it, pct, sortKey, bucket: bucketIndex(pct) };
@@ -127,7 +178,7 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
 
   return (
     <div className="rounded-xl border border-slate-700/90 bg-slate-900/50 p-3 sm:p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+      <div className="flex flex-col gap-2 mb-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
           <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
             {session.title}
@@ -137,10 +188,22 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
           >
             {session.badge}
           </span>
+          {needsHistory && !historyReady && (
+            <span className="text-[10px] text-amber-400/90">Loading history…</span>
+          )}
         </div>
-        <span className="text-[10px] text-slate-500 text-right max-w-[16rem] leading-snug">
-          {session.subtitle}
-        </span>
+        <div className="flex flex-col gap-1.5 sm:items-end min-w-0">
+          <span className="text-[10px] text-slate-500 leading-snug sm:text-right max-w-[20rem]">
+            {session.subtitle}
+            {needsHistory
+              ? ' · Daily closes cached locally (IndexedDB); snapshots recorded on each refresh.'
+              : ''}
+          </span>
+          <HeatmapBaselinePicker
+            baselineId={baselineId}
+            onBaselineChange={onBaselineChange}
+          />
+        </div>
       </div>
       <div className="space-y-3">
         {bucketRows.map((band) => (
@@ -163,8 +226,8 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
                     label={label}
                     it={it}
                     pct={pct}
-                    sessionMode={sessionMode}
-                    sessionBadge={session.badge}
+                    baselineId={baselineId}
+                    daily={dailyBySymbol?.get(sym)}
                   />
                 ))}
               </div>
@@ -191,8 +254,8 @@ export default function SectorHeatmap({ items, sessionMode = 'regular' }) {
                   label={label}
                   it={it}
                   pct={pct}
-                  sessionMode={sessionMode}
-                  sessionBadge={session.badge}
+                  baselineId={baselineId}
+                  daily={dailyBySymbol?.get(sym)}
                 />
               ))}
             </div>
