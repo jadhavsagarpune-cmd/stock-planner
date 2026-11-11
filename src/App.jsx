@@ -181,18 +181,7 @@ export default function App() {
 
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-8 safe-area-pb">
-      <MrvlPriceChart
-        mrvl={mrvl}
-        mrvlErr={mrvlErr}
-        fxRate={fxRate}
-        mrvlInrHint={mrvlInrHint}
-        extMuted={extMuted}
-        extLabel={extLabel}
-        mrvlExt={mrvlExt}
-        mrvlExtInrHint={mrvlExtInrHint}
-      />
-
-      <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <header className="mb-3 sm:mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-white">Stock planner</h1>
           <p className="text-xs text-slate-500 mt-1">
@@ -250,6 +239,17 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      <MrvlPriceChart
+        mrvl={mrvl}
+        mrvlErr={mrvlErr}
+        fxRate={fxRate}
+        mrvlInrHint={mrvlInrHint}
+        extMuted={extMuted}
+        extLabel={extLabel}
+        mrvlExt={mrvlExt}
+        mrvlExtInrHint={mrvlExtInrHint}
+      />
 
       <div className="mb-4">
         <SectorHeatmap
