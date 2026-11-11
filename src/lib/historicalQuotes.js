@@ -3,6 +3,9 @@ import {
   isDailyCacheFresh,
   putDailyBars,
 } from './priceHistoryStore';
+import { mergeLivePriceIntoBars, pickLiveChartPrice } from './chartLiveMerge';
+
+export { mergeLivePriceIntoBars, pickLiveChartPrice };
 
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
 const HEADERS = { Accept: 'application/json' };
@@ -26,11 +29,36 @@ export const DEFAULT_MRVL_CHART_RANGE_ID = '1M';
 
 export function chartHistoryUrl(symbol, range = DEFAULT_RANGE, interval = DEFAULT_INTERVAL) {
   const sym = String(symbol || '').trim().toUpperCase();
-  const qs = `interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+  const qs = [
+    `interval=${encodeURIComponent(interval)}`,
+    `range=${encodeURIComponent(range)}`,
+    'includePrePost=true',
+  ].join('&');
   if (import.meta.env.DEV) {
     return `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(sym))}?${qs}`;
   }
   return `/api/quote?symbol=${encodeURIComponent(sym)}&${qs}`;
+}
+
+export function parseYahooChartClosesPayload(payload) {
+  const err = payload?.chart?.error;
+  if (err) throw new Error(err.description || err.code || 'Yahoo chart error');
+  const results = payload?.chart?.result || [];
+  if (!results.length) throw new Error('No chart data');
+  const { timestamp: stamps, indicators } = results[0];
+  let closes = indicators?.quote?.[0]?.close;
+  if (!Array.isArray(closes) || !closes.some((c) => float(c) != null)) {
+    closes = indicators?.adjclose?.[0]?.adjclose;
+  }
+  if (!Array.isArray(stamps) || !Array.isArray(closes)) return [];
+  const bars = [];
+  for (let i = 0; i < stamps.length; i += 1) {
+    const c = float(closes[i]);
+    const t = float(stamps[i]);
+    if (c == null || t == null) continue;
+    bars.push({ t: t * 1000, close: c });
+  }
+  return bars;
 }
 
 function float(v) {
@@ -49,19 +77,7 @@ export async function fetchYahooChartCloses(
   const resp = await fetch(chartHistoryUrl(sym, range, interval), { headers: HEADERS, signal });
   if (!resp.ok) throw new Error(`Yahoo HTTP ${resp.status}`);
   const payload = await resp.json();
-  const results = payload?.chart?.result || [];
-  if (!results.length) throw new Error('No chart data');
-  const { timestamp: stamps, indicators } = results[0];
-  const closes = indicators?.quote?.[0]?.close;
-  if (!Array.isArray(stamps) || !Array.isArray(closes)) return [];
-  const bars = [];
-  for (let i = 0; i < stamps.length; i += 1) {
-    const c = float(closes[i]);
-    const t = float(stamps[i]);
-    if (c == null || t == null) continue;
-    bars.push({ t: t * 1000, close: c });
-  }
-  return bars;
+  return parseYahooChartClosesPayload(payload);
 }
 
 /** @returns {Promise<{ t: number, close: number }[]>} */

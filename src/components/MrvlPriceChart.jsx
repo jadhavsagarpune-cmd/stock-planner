@@ -3,6 +3,7 @@ import MarvellMarker from './MarvellMarker';
 import {
   DEFAULT_MRVL_CHART_RANGE_ID,
   fetchYahooChartCloses,
+  mergeLivePriceIntoBars,
   MRVL_CHART_RANGES,
 } from '../lib/historicalQuotes';
 import { MARVELL_HERO_PANEL, MARVELL_TICKER_CHIP, MARVELL_TICKER } from '../lib/marvellBrand';
@@ -17,6 +18,7 @@ import StockPriceChangeLines from './StockPriceChangeLines';
 const CHART_W = 640;
 const CHART_H = 160;
 const PAD = { t: 8, r: 8, b: 22, l: 8 };
+const INTRADAY_CHART_POLL_MS = 60_000;
 
 function periodChange(bars) {
   if (!bars?.length) return { pct: null, abs: null, first: null, last: null };
@@ -88,22 +90,39 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
     return () => ac.abort();
   }, [loadChart]);
 
-  const { pct: periodPct, abs: periodAbs, last: chartLast } = useMemo(() => periodChange(bars), [bars]);
+  useEffect(() => {
+    if (rangeSpec.interval !== '15m' && rangeSpec.interval !== '30m') return undefined;
+    const id = window.setInterval(() => {
+      const ac = new AbortController();
+      void loadChart(ac.signal);
+    }, INTRADAY_CHART_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [loadChart, rangeSpec.interval]);
+
+  const chartBars = useMemo(
+    () => mergeLivePriceIntoBars(bars, mrvl, { interval: rangeSpec.interval }),
+    [bars, mrvl, rangeSpec.interval],
+  );
+
+  const { pct: periodPct, abs: periodAbs, last: chartLast } = useMemo(
+    () => periodChange(chartBars),
+    [chartBars],
+  );
   const up = periodPct != null && periodPct >= 0;
   const stroke = up ? '#34d399' : '#f87171';
   const fillId = up ? 'mrvl-chart-up' : 'mrvl-chart-down';
 
   const plotW = CHART_W - PAD.l - PAD.r;
   const plotH = CHART_H - PAD.t - PAD.b;
-  const closes = bars.map((b) => b.close);
+  const closes = chartBars.map((b) => b.close);
   const minY = closes.length ? Math.min(...closes) : 0;
   const maxY = closes.length ? Math.max(...closes) : 1;
   const padY = (maxY - minY) * 0.06 || 0.5;
   const yMin = minY - padY;
   const yMax = maxY + padY;
 
-  const linePath = buildPath(bars, plotW, plotH, yMin, yMax);
-  const areaPath = buildArea(bars, plotW, plotH, yMin, yMax);
+  const linePath = buildPath(chartBars, plotW, plotH, yMin, yMax);
+  const areaPath = buildArea(chartBars, plotW, plotH, yMin, yMax);
 
   const displayPrice = mrvl?.regular_price ?? chartLast;
   const currency = mrvl?.currency ?? 'USD';
@@ -185,7 +204,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
               </div>
             </div>
           )}
-          {periodPct != null && bars.length > 1 && (
+          {periodPct != null && chartBars.length > 1 && (
             <div className="sm:ml-auto">
               <span className="text-xs text-slate-500 block">{rangeId} change</span>
               <p className={`font-mono text-sm tabular-nums ${changeColorClass(periodPct)}`}>
@@ -208,7 +227,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
         {chartErr && !chartLoading && (
           <p className="text-xs text-amber-300/90 px-2 py-6 text-center">{chartErr}</p>
         )}
-        {!chartErr && bars.length > 0 && (
+        {!chartErr && chartBars.length > 0 && (
           <svg
             viewBox={`0 0 ${CHART_W} ${CHART_H}`}
             className="w-full h-[140px] sm:h-[160px] block"

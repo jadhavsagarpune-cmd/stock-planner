@@ -10,7 +10,7 @@ function chartFetchUrl(symbol) {
   if (import.meta.env.DEV) {
     return `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(sym))}?${qs}`;
   }
-  return `/api/quote?symbol=${encodeURIComponent(sym)}`;
+  return `/api/quote?symbol=${encodeURIComponent(sym)}&${qs}`;
 }
 
 function float(v) {

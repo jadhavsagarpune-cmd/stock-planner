@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   const rawInterval = req.query?.interval;
   const range = (Array.isArray(rawRange) ? rawRange[0] : rawRange || '1d').trim();
   const interval = (Array.isArray(rawInterval) ? rawInterval[0] : rawInterval || '1m').trim();
-  const url = `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(symbol))}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}`;
+  const url = `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(symbol))}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}&includePrePost=true`;
 
   try {
     const upstream = await fetch(url, { headers: UPSTREAM_HEADERS });
@@ -34,7 +34,11 @@ export default async function handler(req, res) {
       return;
     }
     const payload = await upstream.json();
-    res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
+    const shortRange = interval.endsWith('m') || range === '5d' || range === '7d';
+    res.setHeader(
+      'Cache-Control',
+      shortRange ? 's-maxage=15, stale-while-revalidate=45' : 's-maxage=30, stale-while-revalidate=60',
+    );
     res.status(200).json(payload);
   } catch (err) {
     res.status(502).json({ error: String(err?.message || err) });
