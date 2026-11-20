@@ -1,10 +1,17 @@
-import { formatMrvlInrHint, formatStockPrice, pickExtendedQuote } from '../lib/stockFormat';
+import {
+  formatMrvlInrHint,
+  formatStockPrice,
+  pickExtendedQuote,
+  pickRegularMarketDisplay,
+} from '../lib/stockFormat';
 import {
   extendedColumnBaselineSubtitle,
   extendedColumnLabel,
   extendedColumnTitle,
   isExtendedColumnMuted,
   previousCloseColumnTitle,
+  regularMarketColumnSubtitle,
+  regularMarketColumnTitle,
   resolveUsExtendedColumnMode,
 } from '../lib/stockMarketSession';
 import { exchangeHint } from '../data/watchlist';
@@ -30,10 +37,11 @@ function QuoteRow({ it, extendedMode, fxRate }) {
   const market = exchangeHint(it.name);
   const columnMuted = isExtendedColumnMuted(extendedMode);
   const ext = pickExtendedQuote(it, extendedMode);
+  const regularCell = pickRegularMarketDisplay(it);
   const isMrvl = isMarvellCompany(symbol) || isMarvellCompany(displayName) || isMarvellCompany(full);
   const inrHint =
-    isMrvl && fxRate != null && it.regular_price != null
-      ? formatMrvlInrHint(it.regular_price, fxRate)
+    isMrvl && fxRate != null && regularCell?.price != null
+      ? formatMrvlInrHint(regularCell.price, fxRate)
       : null;
   const extInrHint =
     isMrvl && fxRate != null && ext?.price != null ? formatMrvlInrHint(ext.price, fxRate) : null;
@@ -87,21 +95,27 @@ function QuoteRow({ it, extendedMode, fxRate }) {
         className={`py-2 pr-2 text-right text-sm whitespace-nowrap ${
           rowMuted ? 'text-slate-600' : ''
         }`}
-        title="Regular session last price · day change vs previous close"
+        title={regularMarketColumnTitle(extendedMode)}
       >
         {rowErr ? (
           <span className="text-amber-400/90 text-xs" title={it.error}>—</span>
         ) : (
           <div className="flex flex-col items-end gap-0.5">
             <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
-              {formatStockPrice(it.regular_price, it.currency)}
+              {formatStockPrice(regularCell?.price, it.currency)}
+              {regularCell?.live ? (
+                <span className="text-emerald-400/80 font-normal text-[9px] sm:text-[10px] ml-1">
+                  live
+                </span>
+              ) : null}
               {inrHint && (
                 <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
               )}
             </span>
             <StockPriceChangeLines
               quote={it}
-              pct={it.regular_change_pct}
+              pct={regularCell?.pct ?? it.regular_change_pct}
+              changeAbs={regularCell?.abs}
               currency={it.currency}
               fxRate={fxRate}
               showInrChange={isMrvl}
@@ -171,13 +185,16 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
           className="font-semibold pb-2 text-right w-20 sm:w-24"
           title={previousCloseColumnTitle()}
         >
-          Prev close
+          Previous Close
         </th>
         <th
           className="font-semibold pb-2 text-right w-28 sm:w-36"
-          title="Regular session · vs prev close"
+          title={regularMarketColumnTitle(extendedMode)}
         >
-          Regular
+          <span className="normal-case tracking-normal">Regular Market</span>
+          <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
+            {regularMarketColumnSubtitle(extendedMode)}
+          </span>
         </th>
         <th
           className={`font-semibold pb-2 text-right w-28 sm:w-36 ${

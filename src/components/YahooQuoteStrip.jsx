@@ -2,6 +2,7 @@ import {
   formatMrvlInrHint,
   formatStockPrice,
   pickExtendedQuote,
+  pickRegularMarketDisplay,
 } from '../lib/stockFormat';
 import StockPriceChangeLines from './StockPriceChangeLines';
 import { resolveActiveSession } from '../lib/sessionQuote';
@@ -23,9 +24,10 @@ export default function YahooQuoteStrip({
   const session = resolveActiveSession(quote, now);
   const showAfter = session === 'post';
   const showPre = session === 'pre';
+  const regularCell = pickRegularMarketDisplay(quote, now);
   const regularInr =
-    showInrChange && fxRate != null && quote.regular_price != null
-      ? formatMrvlInrHint(quote.regular_price, fxRate)
+    showInrChange && fxRate != null && regularCell?.price != null
+      ? formatMrvlInrHint(regularCell.price, fxRate)
       : null;
 
   const ext = showAfter
@@ -54,9 +56,14 @@ export default function YahooQuoteStrip({
         </div>
       </div>
       <div>
-        <div className={labelClass}>Regular Market</div>
+        <div className={labelClass}>
+          Regular Market
+          {regularCell?.live ? (
+            <span className="text-emerald-400/90 normal-case tracking-normal ml-1">live</span>
+          ) : null}
+        </div>
         <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
-          {formatStockPrice(quote.regular_price, currency)}
+          {formatStockPrice(regularCell?.price ?? quote.regular_price, currency)}
           {regularInr && (
             <span className="text-violet-300/90 font-normal ml-1 text-[10px] sm:text-xs">
               ({regularInr})
@@ -65,8 +72,8 @@ export default function YahooQuoteStrip({
         </div>
         <StockPriceChangeLines
           quote={quote}
-          pct={quote.regular_change_pct}
-          changeAbs={quote.regular_change_abs}
+          pct={regularCell?.pct ?? quote.regular_change_pct}
+          changeAbs={regularCell?.abs ?? quote.regular_change_abs}
           currency={currency}
           fxRate={fxRate}
           showInrChange={showInrChange}
@@ -96,7 +103,7 @@ export default function YahooQuoteStrip({
       )}
       {showPre && ext?.price != null && (
         <div>
-          <div className={labelClass}>Pre Market</div>
+          <div className={labelClass}>Pre-market</div>
           <div className={`mt-0.5 font-mono tabular-nums text-amber-100 ${priceClass}`}>
             {formatStockPrice(ext.price, currency)}
             {extInr && (

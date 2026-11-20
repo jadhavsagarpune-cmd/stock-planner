@@ -72,29 +72,42 @@ export function resolveUsExtendedColumnMode(itemsOrState, now = new Date()) {
 }
 
 export function extendedColumnLabel(mode) {
-  return mode === 'post' ? 'After hrs' : 'Pre';
+  return mode === 'post' ? 'After Market' : 'Pre-market';
 }
 
 /** Subtitle under the extended-hours watchlist column header. */
 export function extendedColumnBaselineSubtitle(mode) {
-  if (mode === 'post') return 'vs regular close';
-  if (mode === 'pre') return 'vs prev close';
+  if (mode === 'post') return 'vs Regular Market close';
+  if (mode === 'pre') return 'vs Previous Close';
   return '';
+}
+
+/** Subtitle under the Regular Market watchlist column header. */
+export function regularMarketColumnSubtitle(extendedMode) {
+  if (extendedMode === 'regular') return 'live · vs Previous Close';
+  return 'session close · vs Previous Close';
 }
 
 /** Tooltip for pre/post watchlist column headers and cells. */
 export function extendedColumnTitle(mode) {
   if (mode === 'regular') {
-    return 'Extended hours hidden during US regular session (9:30–16:00 ET)';
+    return 'Pre-market / After Market hidden during US regular session (9:30–16:00 ET)';
   }
   if (mode === 'post') {
-    return 'After-hours price · change vs regular session close (Yahoo quote panel)';
+    return 'After Market price · $/% vs Regular Market close (not vs Previous Close)';
   }
-  return 'Pre-market price · change vs previous close';
+  return 'Pre-market price · $/% vs Previous Close';
+}
+
+export function regularMarketColumnTitle(extendedMode) {
+  if (extendedMode === 'regular') {
+    return 'Regular Market live price (regularMarketPrice / current) · day change vs Previous Close';
+  }
+  return 'Regular Market session close · day change vs Previous Close';
 }
 
 export function previousCloseColumnTitle() {
-  return 'Previous close (Yahoo regularMarketPreviousClose) — baseline for regular session day change';
+  return 'Previous Close (Yahoo regularMarketPreviousClose / previousClose) — prior session only';
 }
 
 /** Heatmap header badge + helper copy for the active session. */

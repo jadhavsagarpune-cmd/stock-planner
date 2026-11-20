@@ -1,0 +1,49 @@
+/**
+ * Regular Market column: live during US REGULAR; session close off-hours.
+ * Run: node scripts/test-regular-market-display.mjs
+ */
+import { pickRegularMarketDisplay } from '../src/lib/stockFormat.js';
+
+const REG_MIDDAY = new Date('2026-11-11T17:00:00.000Z');
+const POST_EVENING = new Date('2026-11-11T22:00:00.000Z');
+
+const liveRow = {
+  name: 'MRVL',
+  market_state: 'REGULAR',
+  previous_close: 78,
+  regular_price: 79.5,
+  regular_change_pct: 1.92,
+  current_price: 79.85,
+};
+
+const live = pickRegularMarketDisplay(liveRow, REG_MIDDAY);
+if (!live?.live || live.price !== 79.85) {
+  console.error('FAIL live regular session uses current_price', live);
+  process.exit(1);
+}
+const expectedPct = ((79.85 - 78) / 78) * 100;
+if (Math.abs(live.pct - expectedPct) > 0.02) {
+  console.error('FAIL live pct vs previous close', live);
+  process.exit(1);
+}
+
+const closeRow = {
+  name: 'ADBE',
+  market_state: 'POST',
+  previous_close: 138.47,
+  regular_price: 336.31,
+  regular_change_pct: 142.87,
+  current_price: 333.57,
+};
+
+const closed = pickRegularMarketDisplay(closeRow, POST_EVENING);
+if (closed?.live || closed?.price !== 336.31) {
+  console.error('FAIL after hours uses regular session close not current', closed);
+  process.exit(1);
+}
+if (Math.abs(closed.pct - 142.87) > 0.05) {
+  console.error('FAIL session close day pct', closed);
+  process.exit(1);
+}
+
+console.log('OK pickRegularMarketDisplay');

@@ -85,7 +85,7 @@ if (pickActiveSessionPrice(regQuote, REG_MIDDAY) !== 79.6) {
   console.error('FAIL pickActiveSessionPrice REG live');
   process.exit(1);
 }
-if (sessionHeadlineLabel(regQuote, REG_MIDDAY) !== 'Regular session') {
+if (sessionHeadlineLabel(regQuote, REG_MIDDAY) !== 'Regular Market') {
   console.error('FAIL sessionHeadlineLabel REG');
   process.exit(1);
 }
@@ -118,7 +118,7 @@ if (!postDay || Math.abs(postDay.pct - expectedPostPct) > 0.02) {
   console.error('FAIL pickSessionDayChange POST vs regular close', postDay, expectedPostPct);
   process.exit(1);
 }
-if (postDay.referenceLabel !== 'After-hours vs regular close') {
+if (postDay.referenceLabel !== 'After Market vs Regular Market close') {
   console.error('FAIL pickSessionDayChange POST referenceLabel', postDay.referenceLabel);
   process.exit(1);
 }

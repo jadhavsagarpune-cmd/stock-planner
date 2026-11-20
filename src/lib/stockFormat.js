@@ -1,3 +1,9 @@
+import { isUsRegularSessionByClock, normalizeMarketState } from './stockMarketSession.js';
+
+/** Watchlist helper copy (Yahoo column semantics). */
+export const WATCHLIST_YAHOO_LEGEND =
+  "Previous Close = yesterday's close · Pre-market = before open · Regular Market = live or session close · After Market = extended";
+
 /** Pre vs last regular session price (not vs prior close). */
 export function preChangePctVsRegular(premarketPrice, regularPrice) {
   if (premarketPrice == null || regularPrice == null) return null;
@@ -157,6 +163,45 @@ export function pickExtendedQuote(it, mode) {
     }
   }
   return { price, pct, abs };
+}
+
+/**
+ * Regular Market watchlist column: live tick during US regular session; else session close + day % vs prev.
+ */
+export function pickRegularMarketDisplay(it, now = new Date()) {
+  if (!it) return null;
+  const sym = String(it.name || it.symbol || '').trim().toUpperCase();
+  const isKrx = sym.endsWith('.KS');
+  const previousClose = it.previous_close;
+  const state = normalizeMarketState(it.market_state);
+  const usRegularLive =
+    isUsRegularSessionByClock(now)
+    && !isKrx
+    && state === 'REGULAR';
+
+  if (usRegularLive) {
+    const price =
+      it.current_price != null ? Number(it.current_price) : Number(it.regular_price);
+    if (price == null || Number.isNaN(price)) return null;
+    let pct = it.regular_change_pct;
+    let abs = it.regular_change_abs;
+    if (previousClose != null && Number(previousClose) !== 0) {
+      pct = ((price - previousClose) / previousClose) * 100;
+      abs = deriveExtendedChangeAbs(price, previousClose, pct);
+    } else {
+      abs = deriveRegularChangeAbsFromRow(it);
+    }
+    return { price, pct, abs, live: true };
+  }
+
+  const price = it.regular_price;
+  if (price == null) return null;
+  return {
+    price,
+    pct: it.regular_change_pct,
+    abs: deriveRegularChangeAbsFromRow(it),
+    live: false,
+  };
 }
 
 /** % change used for session heatmap tiles (live vs pre vs after-hours). */
