@@ -117,11 +117,14 @@ function resolvePreviousClose(meta, regularPrice) {
     float(meta.preMarketPrice)
     ?? ((inPre || clockPre) ? float(meta.currentPrice) : null);
 
-  if ((inPre || clockPre) && regPx != null && prePx != null) {
-    const spread = Math.abs(regPx - prePx) / prePx;
-    // During PRE, Yahoo keeps regularMarketPrice at prior close (e.g. 138.47) while
-    // meta.previousClose/chart can lag (e.g. MRVL 145.54 on the wire).
-    if (spread > 0.005 && spread < 0.35) {
+  const isPost =
+    marketState === 'POST' || marketState === 'POSTPOST' || marketState === 'CLOSED';
+  if ((inPre || clockPre) && !isPost && regPx != null && prePx != null) {
+  const wirePrev = metaPrev ?? chartPrev;
+  const wireLooksStale =
+    wirePrev != null && regPx < wirePrev * 0.97 && Math.abs(regPx - prePx) / prePx > 0.005;
+  if (wireLooksStale || (regPx > prePx && Math.abs(regPx - prePx) / prePx > 0.005)) {
+      // During PRE, regularMarketPrice is often prior close (138.47) while previousClose lags (145.54).
       if (regMktPrev != null && Math.abs(regPx - regMktPrev) / regMktPrev < 0.03) {
         return regMktPrev;
       }
