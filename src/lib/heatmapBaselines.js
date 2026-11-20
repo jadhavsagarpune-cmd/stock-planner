@@ -1,7 +1,8 @@
 import {
   formatChangePct,
   formatStockPrice,
-  pickExtendedQuote,
+  pickHeatmapChangePct,
+  pickHeatmapPrice,
 } from './stockFormat.js';
 import { resolveUsExtendedColumnMode } from './stockMarketSession.js';
 
@@ -11,9 +12,9 @@ export const HEATMAP_BASELINE_STORAGE_KEY = 'stock-planner.heatmapBaseline';
 export const HEATMAP_BASELINES = [
   {
     id: 'pre',
-    label: 'Pre-market',
+    label: 'Session',
     badge: 'PRE',
-    subtitle: '% vs prior session close (pre-market only)',
+    subtitle: 'Live, pre-market, or after-hours % vs previous close (by US session)',
     needsSessionPrice: true,
   },
   {
@@ -145,17 +146,8 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
   const sym = String(it.name || '').trim().toUpperCase();
 
   if (baselineId === 'pre') {
-    if (sym.endsWith('.KS')) {
-      const n = Number(it.regular_change_pct);
-      return it.regular_change_pct == null || Number.isNaN(n) ? null : n;
-    }
     const sessionMode = resolveUsExtendedColumnMode(it.market_state);
-    if (sessionMode !== 'pre') return null;
-    const ext = pickExtendedQuote(it, 'pre');
-    if (ext?.pct != null && !Number.isNaN(Number(ext.pct))) return Number(ext.pct);
-    const price = it.premarket_price ?? it.current_price;
-    const base = it.previous_close;
-    return deriveChangePct(price, base);
+    return pickHeatmapChangePct(it, sessionMode);
   }
 
   if (baselineId === 'previous_close') {
@@ -186,9 +178,8 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
 export function pickHeatmapPriceForBaseline(it, baselineId, daily = null) {
   if (!it || it.status !== 'done') return null;
   if (baselineId === 'pre') {
-    if (resolveUsExtendedColumnMode(it.market_state) !== 'pre') return null;
-    const ext = pickExtendedQuote(it, 'pre');
-    return ext?.price ?? it.premarket_price ?? pickCurrentHeatmapPrice(it);
+    const sessionMode = resolveUsExtendedColumnMode(it.market_state);
+    return pickHeatmapPrice(it, sessionMode) ?? pickCurrentHeatmapPrice(it);
   }
   if (baselineId === 'previous_close') {
     return pickCurrentHeatmapPrice(it) ?? it.regular_price;

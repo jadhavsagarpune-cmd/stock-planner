@@ -16,7 +16,15 @@ const row = {
   previous_close: 90,
   current_price: 105,
   premarket_price: 102,
+  regular_change_pct: 11.11,
+  market_state: 'REGULAR',
 };
+
+const sessionPre = pickHeatmapChangePctForBaseline(row, 'pre', null);
+if (sessionPre == null || Math.abs(sessionPre - 11.11) > 0.01) {
+  console.error('FAIL session baseline during REGULAR', sessionPre);
+  process.exit(1);
+}
 
 const prev = pickHeatmapChangePctForBaseline(row, 'previous_close', null);
 if (prev == null || Math.abs(prev - (105 - 90) / 90 * 100) > 0.01) {

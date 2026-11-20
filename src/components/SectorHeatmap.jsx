@@ -8,6 +8,7 @@ import {
   pickHeatmapChangePctForBaseline,
 } from '../lib/heatmapBaselines';
 import { MARVELL_ACCENT_RING, isMarvellCompany } from '../lib/marvellBrand';
+import { heatmapSessionMeta } from '../lib/stockMarketSession';
 import { MarvellTickerBadge } from './MarvellMarker';
 
 function heatColor(pct) {
@@ -139,8 +140,10 @@ export default function SectorHeatmap({
   baselineId = 'pre',
   onBaselineChange,
   dailyBySymbol = null,
+  extendedMode = 'regular',
 }) {
-  const session = heatmapBaselineMeta(baselineId);
+  const session =
+    baselineId === 'pre' ? heatmapSessionMeta(extendedMode) : heatmapBaselineMeta(baselineId);
   const needsHistory = baselineNeedsDailyHistory(baselineId);
   const historyReady = !needsHistory || (dailyBySymbol && dailyBySymbol.size > 0);
   const bySym = new Map();
