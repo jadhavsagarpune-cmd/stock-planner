@@ -111,22 +111,44 @@ function resolvePreviousClose(meta, regularPrice) {
   const regMktPrev = float(meta.regularMarketPreviousClose);
   const marketState = String(meta.marketState || '').trim().toUpperCase();
   const inPre = marketState === 'PRE' || marketState === 'PREPRE';
-  // v7 regularMarketPreviousClose is authoritative; chartPreviousClose can lag (e.g. MRVL 145.54 vs 138.47).
-  let previousClose = regMktPrev ?? metaPrev;
+
+  const prePx = float(meta.preMarketPrice);
+  const preChg = float(meta.preMarketChange);
+  let derivedFromPre = null;
+  if (prePx != null && preChg != null) {
+    const d = prePx - preChg;
+    if (d > 0) derivedFromPre = d;
+  }
+
+  // v7 regularMarketPreviousClose wins; chart/previousClose on the wire can be stale (e.g. MRVL 145.54 vs 138.47).
+  let previousClose = regMktPrev ?? derivedFromPre;
+
+  if (
+    metaPrev != null
+    && previousClose != null
+    && Math.abs(metaPrev - previousClose) / previousClose > 0.02
+  ) {
+    // Ignore disagreeing meta.previousClose (often chart echo ~145).
+  } else if (previousClose == null) {
+    previousClose = metaPrev;
+  }
 
   const chg = float(meta.regularMarketChange);
-  const trustFromChangeHeuristic = regMktPrev == null && !inPre;
+  const trustFromChangeHeuristic = regMktPrev == null && derivedFromPre == null && !inPre;
 
   if (trustFromChangeHeuristic && previousClose == null && regularPrice != null && chg != null) {
     const fromChange = regularPrice - chg;
     if (fromChange > 0) previousClose = fromChange;
   }
 
-  if (chartPrev != null && regMktPrev == null) {
+  if (chartPrev != null && regMktPrev == null && derivedFromPre == null) {
     if (previousClose == null) {
-      previousClose = chartPrev;
-    } else if (Math.abs(chartPrev - previousClose) / previousClose > CHART_PREV_MAX_DRIFT) {
-      // e.g. ADBE chartPreviousClose ~338 while quote prior ~138 — ignore chart field
+      if (
+        metaPrev == null
+        || Math.abs(chartPrev - metaPrev) / metaPrev <= CHART_PREV_MAX_DRIFT
+      ) {
+        previousClose = chartPrev;
+      }
     }
   }
 
@@ -141,12 +163,6 @@ function resolvePreviousClose(meta, regularPrice) {
       const drift = Math.abs(fromChange - previousClose) / previousClose;
       if (drift > 0.02 && drift <= CHART_PREV_MAX_DRIFT) {
         previousClose = fromChange;
-      } else if (
-        drift > CHART_PREV_MAX_DRIFT
-        && regMktPrev != null
-        && Math.abs(fromChange - regMktPrev) / regMktPrev < 0.02
-      ) {
-        previousClose = regMktPrev;
       }
     }
   }
