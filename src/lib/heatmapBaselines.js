@@ -152,9 +152,8 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
     const ext = pickExtendedQuote(it, 'pre');
     if (ext?.pct != null && !Number.isNaN(Number(ext.pct))) return Number(ext.pct);
     const price = it.premarket_price ?? it.current_price;
-    const pct = preChangePctVsRegular(price, it.regular_price);
-    if (pct != null) return pct;
-    return null;
+    const base = it.previous_close ?? it.regular_price;
+    return deriveChangePct(price, base);
   }
 
   if (baselineId === 'previous_close') {

@@ -113,7 +113,7 @@ if (pickActiveSessionPrice(postQuote, POST_EVENING) !== 80.5) {
   process.exit(1);
 }
 const postDay = pickSessionDayChange(postQuote, POST_EVENING);
-if (!postDay || postDay.pct !== 1.9) {
+if (!postDay || Math.abs(postDay.pct - 1.9) > 0.02) {
   console.error('FAIL pickSessionDayChange POST', postDay);
   process.exit(1);
 }

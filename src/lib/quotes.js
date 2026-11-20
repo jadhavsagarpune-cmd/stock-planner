@@ -31,6 +31,37 @@ function deriveChangePct(price, base) {
   return ((price - base) / base) * 100;
 }
 
+/** 1d chart meta can ship a chartPreviousClose far from regularMarketPrice (splits, window quirks). */
+function resolvePreviousClose(meta, regularPrice, regularChangePct) {
+  const chartPrev = float(meta.chartPreviousClose);
+  const metaPrev = float(meta.previousClose);
+  let previousClose = chartPrev ?? metaPrev;
+
+  if (previousClose == null || regularPrice == null || regularPrice <= 0 || previousClose <= 0) {
+    return previousClose;
+  }
+
+  const rel = Math.abs(regularPrice - previousClose) / previousClose;
+  if (rel <= 0.35) return previousClose;
+
+  const chg = float(meta.regularMarketChange);
+  if (chg != null) {
+    const derived = regularPrice - chg;
+    if (derived > 0 && Math.abs(regularPrice - derived) / derived < 0.2) return derived;
+  }
+  if (regularChangePct != null) {
+    const derived = regularPrice / (1 + regularChangePct / 100);
+    if (Number.isFinite(derived) && derived > 0 && Math.abs(regularPrice - derived) / derived < 0.2) {
+      return derived;
+    }
+  }
+  if (metaPrev != null && metaPrev > 0 && metaPrev !== chartPrev) {
+    const relMeta = Math.abs(regularPrice - metaPrev) / metaPrev;
+    if (relMeta < rel) return metaPrev;
+  }
+  return previousClose;
+}
+
 /** Align absolute change sign with derived percentage. */
 function alignChangeAbsWithPct(changeAbs, changePct) {
   if (changeAbs == null || changePct == null) return changeAbs;
@@ -77,11 +108,14 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
 
   const regularPrice = float(meta.regularMarketPrice);
   let premarketPrice = float(meta.preMarketPrice);
-  const previousClose = float(meta.chartPreviousClose) ?? float(meta.previousClose);
-  let regularChangePct = deriveChangePct(regularPrice, previousClose);
+  const provisionalPrev = float(meta.chartPreviousClose) ?? float(meta.previousClose);
+  let regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
   if (regularChangePct == null) {
-    regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
+    regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
   }
+  const previousClose = resolvePreviousClose(meta, regularPrice, regularChangePct);
+  const regularFromPrev = deriveChangePct(regularPrice, previousClose);
+  if (regularFromPrev != null) regularChangePct = regularFromPrev;
   let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
   if (premarketChangePct == null && premarketPrice != null && previousClose != null) {
     premarketChangePct = deriveChangePct(premarketPrice, previousClose);
@@ -139,42 +173,34 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     }
     premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
   }
-  if (
-    premarketPrice == null
-    && marketState === 'REGULAR'
-    && currentPrice != null
-    && regularPrice != null
-    && currentPrice !== regularPrice
-    && postmarketPrice == null
-  ) {
-    premarketPrice = currentPrice;
-    if (premarketChangePct == null && previousClose != null) {
-      premarketChangePct = deriveChangePct(premarketPrice, previousClose);
-    }
-  }
-
   // Yahoo chart v8 often omits postMarketPrice; fulldayPrice is the live extended tick (see MRVL meta).
   const fulldayPrice = float(meta.fulldayPrice);
   if (currentPrice == null && fulldayPrice != null) {
     currentPrice = fulldayPrice;
   }
+  const preSession = marketState === 'PRE' || marketState === 'PREPRE';
   if (
     regularPrice != null
     && fulldayPrice != null
     && Math.abs(fulldayPrice - regularPrice) >= 0.01
   ) {
-    if (postmarketPrice == null) postmarketPrice = fulldayPrice;
-    if (premarketPrice == null) premarketPrice = fulldayPrice;
+    if (postmarketPrice == null && !preSession) postmarketPrice = fulldayPrice;
+    if (premarketPrice == null && preSession) premarketPrice = fulldayPrice;
   }
 
-  let postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
+  if (premarketPrice != null && previousClose != null) {
+    premarketChangePct = deriveChangePct(premarketPrice, previousClose);
+    premarketChangeAbs = premarketPrice - previousClose;
+    premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
+  }
+
+  let postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
+  let postmarketChangeAbs =
+    postmarketPrice != null && regularPrice != null ? postmarketPrice - regularPrice : null;
   if (postmarketChangePct == null) {
-    postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
+    postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
   }
-  let postmarketChangeAbs = float(meta.postMarketChange);
-  if (postmarketChangeAbs == null && postmarketPrice != null && regularPrice != null) {
-    postmarketChangeAbs = postmarketPrice - regularPrice;
-  }
+  if (postmarketChangeAbs == null) postmarketChangeAbs = float(meta.postMarketChange);
   postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
 
   const regularChangeAbs = deriveRegularChangeAbs(

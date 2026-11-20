@@ -102,23 +102,34 @@ export function pickExtendedQuote(it, mode) {
   if (mode === 'post') {
     const price =
       it.postmarket_price ?? it.fullday_price ?? currentExtendedPrice(it) ?? it.premarket_price;
-    let pct = it.postmarket_change_pct;
-    if (pct == null && price != null && it.regular_price != null) {
-      pct = preChangePctVsRegular(price, it.regular_price);
+    const reg = it.regular_price;
+    let pct = null;
+    let abs = null;
+    if (price != null && reg != null) {
+      pct = preChangePctVsRegular(price, reg);
+      abs = deriveExtendedChangeAbs(price, reg, pct);
+    } else {
+      pct = it.postmarket_change_pct;
+      abs = deriveExtendedChangeAbs(price, reg, pct) ?? it.postmarket_change_abs;
     }
-    const abs = deriveExtendedChangeAbs(price, it.regular_price, pct);
     return { price, pct, abs };
   }
   const price = it.premarket_price ?? currentExtendedPrice(it);
-  let pct = it.premarket_change_pct;
-  if (pct == null && price != null && it.previous_close != null) {
-    const prev = Number(it.previous_close);
-    if (Number.isFinite(prev) && prev !== 0) pct = ((Number(price) - prev) / prev) * 100;
+  const prev = it.previous_close;
+  let pct = null;
+  let abs = null;
+  if (price != null && prev != null && Number(prev) !== 0) {
+    pct = ((Number(price) - Number(prev)) / Number(prev)) * 100;
+    abs = deriveExtendedChangeAbs(price, prev, pct);
+  } else {
+    pct = it.premarket_change_pct;
+    if (pct == null && price != null && it.regular_price != null) {
+      pct = preChangePctVsRegular(price, it.regular_price);
+    }
+    const base = prev != null ? prev : it.regular_price;
+    abs = it.premarket_change_abs;
+    if (abs == null) abs = deriveExtendedChangeAbs(price, base, pct);
   }
-  if (pct == null) pct = preChangePctVsRegular(price, it.regular_price);
-  const base = it.previous_close != null ? it.previous_close : it.regular_price;
-  let abs = it.premarket_change_abs;
-  if (abs == null) abs = deriveExtendedChangeAbs(price, base, pct);
   return { price, pct, abs };
 }
 

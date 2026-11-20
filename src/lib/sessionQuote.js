@@ -116,12 +116,15 @@ export function pickSessionDayChange(quote, now = new Date()) {
 
   if (session === 'pre') {
     const price = float(quote.premarket_price) ?? extendedCurrentPrice(quote) ?? float(quote.current_price);
-    let pct = float(quote.premarket_change_pct);
-    if (pct == null && price != null && previousClose != null) {
+    let pct = null;
+    let abs = null;
+    if (price != null && previousClose != null) {
       pct = ((price - previousClose) / previousClose) * 100;
+      abs = price - previousClose;
+    } else {
+      pct = float(quote.premarket_change_pct);
+      abs = float(quote.premarket_change_abs);
     }
-    let abs = float(quote.premarket_change_abs);
-    if (abs == null && price != null && previousClose != null) abs = price - previousClose;
     abs = deriveExtendedChangeAbs(price, previousClose, pct) ?? abs;
     if (pct == null && abs == null) return null;
     return { pct, abs, referenceLabel: 'Pre-market vs prior close' };
@@ -133,12 +136,16 @@ export function pickSessionDayChange(quote, now = new Date()) {
       ?? float(quote.fullday_price)
       ?? extendedCurrentPrice(quote)
       ?? float(quote.current_price);
-    let pct = float(quote.postmarket_change_pct);
-    if (pct == null && price != null && regular != null) {
+    let pct = null;
+    let abs = null;
+    if (price != null && regular != null) {
       pct = preChangePctVsRegular(price, regular);
+      abs = price - regular;
+    } else {
+      pct = float(quote.postmarket_change_pct);
+      abs = float(quote.postmarket_change_abs);
     }
-    let abs = float(quote.postmarket_change_abs);
-    if (abs == null) abs = deriveExtendedChangeAbs(price, regular, pct);
+    abs = deriveExtendedChangeAbs(price, regular, pct) ?? abs;
     if (pct == null && abs == null) return null;
     return { pct, abs, referenceLabel: 'After-hours vs regular close' };
   }
