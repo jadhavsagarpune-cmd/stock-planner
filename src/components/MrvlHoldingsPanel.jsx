@@ -1,9 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import {
-  pickActiveSessionPrice,
-  pickSessionDayChange,
-  sessionHeadlineLabel,
-} from '../lib/sessionQuote';
+import { pickActiveSessionPrice, sessionHeadlineLabel } from '../lib/sessionQuote';
 import MarketStatusChip from './MarketStatusChip';
 import {
   mrvlHoldingsValuationPrice,
@@ -11,7 +7,7 @@ import {
 } from '../lib/holdingsPriceCompare';
 import { formatChangePct, formatStockPrice, formatInr } from '../lib/stockFormat';
 import { loadMrvlCustomUsd, saveMrvlCustomUsd } from '../lib/holdingsStorage';
-import StockPriceChangeLines from './StockPriceChangeLines';
+import YahooQuoteStrip from './YahooQuoteStrip';
 
 const PRICE_DELTA_EPS = 0.005;
 
@@ -63,7 +59,6 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
   const shareCount = parsePositiveNumber(shares);
   const customPrice = parsePositiveNumber(customUsd);
   const liveUsd = mrvl ? pickActiveSessionPrice(mrvl) : null;
-  const sessionDay = mrvl ? pickSessionDayChange(mrvl) : null;
   const headlineLabel = mrvl ? sessionHeadlineLabel(mrvl) : 'Quote';
   const currency = mrvl?.currency || 'USD';
   const priceUsd = mrvlHoldingsValuationPrice(customPrice, liveUsd);
@@ -178,30 +173,20 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
           <div className="rounded-lg border border-amber-500/25 bg-slate-950/80 px-3 py-3 space-y-2">
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 min-[380px]:gap-4">
               <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium">
-                  {headlineLabel}
+                <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">
+                  Quote · {headlineLabel}
                 </div>
-                <div className="mt-0.5 font-mono text-lg sm:text-xl font-semibold tabular-nums text-white break-all">
-                  {liveUsd != null ? formatStockPrice(liveUsd, currency) : '—'}
-                </div>
-                {sessionDay ? (
-                  <div className="mt-1.5 min-w-0">
-                    <StockPriceChangeLines
-                      quote={mrvl}
-                      pct={sessionDay.pct}
-                      changeAbs={sessionDay.abs}
-                      currency={currency}
-                      fxRate={fxRate}
-                      showInrChange
-                      className="!items-start !text-[10px] sm:!text-[11px]"
-                    />
-                    <span className="text-[10px] text-slate-500 block mt-0.5">{sessionDay.referenceLabel}</span>
-                  </div>
-                ) : mrvl ? (
-                  <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
-                    Current MRVL quote (same as chart)
-                  </p>
-                ) : null}
+                {mrvl ? (
+                  <YahooQuoteStrip
+                    quote={mrvl}
+                    currency={currency}
+                    fxRate={fxRate}
+                    showInrChange
+                    size="lg"
+                  />
+                ) : (
+                  <p className="text-sm text-slate-500">Waiting for MRVL quote…</p>
+                )}
               </div>
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wide text-violet-300/90 font-medium">

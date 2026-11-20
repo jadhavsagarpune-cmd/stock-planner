@@ -80,14 +80,14 @@ export function extendedColumnTitle(mode) {
   if (mode === 'regular') {
     return 'Extended hours hidden during US regular session (9:30–16:00 ET)';
   }
-  const baseline =
-    'Change $ and % are vs previous close (prior session), not Yahoo’s after-hours vs regular close.';
-  if (mode === 'post') return `After-hours price · ${baseline}`;
-  return `Pre-market price · ${baseline}`;
+  if (mode === 'post') {
+    return 'After-hours price · change vs regular session close (Yahoo quote panel)';
+  }
+  return 'Pre-market price · change vs previous close';
 }
 
 export function previousCloseColumnTitle() {
-  return 'Previous session close — baseline for regular, pre-market, and after-hours % on this page';
+  return 'Previous close (Yahoo regularMarketPreviousClose) — baseline for regular session day change';
 }
 
 /** Heatmap header badge + helper copy for the active session. */
@@ -113,7 +113,7 @@ export function heatmapSessionMeta(mode) {
   return {
     badge: 'AFTER HOURS',
     title: 'Session heatmap · after hours',
-    subtitle: 'After-hours % vs previous close · US names (KRX uses local session)',
+    subtitle: 'After-hours % vs regular close · US names (KRX uses local session)',
     badgeClass:
       'bg-violet-950/80 text-violet-200 border-violet-600/50 ring-1 ring-violet-500/30',
   };

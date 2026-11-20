@@ -1,4 +1,5 @@
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
+const YAHOO_QUOTE_V7 = 'https://query1.finance.yahoo.com/v7/finance/quote';
 const HEADERS = {
   Accept: 'application/json',
   'User-Agent':
@@ -7,6 +8,35 @@ const HEADERS = {
 
 const CHART_QS = 'interval=1m&range=1d&includePrePost=true';
 
+/**
+ * Yahoo field mapping (trust v7 quote summary for prices; chart v8 for intraday series only):
+ * - previous_close ← regularMarketPreviousClose ?? previousClose (never chartPreviousClose when v7 present)
+ * - regular_price ← regularMarketPrice (+ unstuck helper when meta lags on gap days)
+ * - regular_change_* ← vs previous_close (regularMarketChange / Percent)
+ * - postmarket_* ← vs regular_price (postMarketChange / Percent), Yahoo after-hours semantics
+ * - premarket_* ← vs previous_close (preMarketChange / Percent)
+ */
+const QUOTE_SUMMARY_KEYS = [
+  'symbol',
+  'currency',
+  'marketState',
+  'exchange',
+  'fullExchangeName',
+  'regularMarketPrice',
+  'regularMarketPreviousClose',
+  'previousClose',
+  'regularMarketChange',
+  'regularMarketChangePercent',
+  'postMarketPrice',
+  'postMarketChange',
+  'postMarketChangePercent',
+  'preMarketPrice',
+  'preMarketChange',
+  'preMarketChangePercent',
+  'regularMarketTime',
+  'postMarketTime',
+];
+
 /** Production (Vercel): same-origin proxy avoids browser CORS blocks on Yahoo. */
 function chartFetchUrl(symbol) {
   const sym = String(symbol || '').trim().toUpperCase();
@@ -14,6 +44,42 @@ function chartFetchUrl(symbol) {
   if (import.meta.env?.DEV) return direct;
   if (typeof window === 'undefined') return direct;
   return `/api/quote?symbol=${encodeURIComponent(sym)}&${CHART_QS}`;
+}
+
+function quoteSummaryFetchUrl(symbol) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  const direct = `${YAHOO_QUOTE_V7}?symbols=${encodeURIComponent(sym)}`;
+  if (import.meta.env?.DEV) return direct;
+  if (typeof window === 'undefined') return direct;
+  return `/api/quote-summary?symbol=${encodeURIComponent(sym)}`;
+}
+
+async function fetchYahooQuoteSummaryRow(symbol, { signal } = {}) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) return null;
+  try {
+    const resp = await fetch(quoteSummaryFetchUrl(sym), { headers: HEADERS, signal });
+    if (!resp.ok) return null;
+    const payload = await resp.json();
+    const rows = payload?.quoteResponse?.result;
+    if (!Array.isArray(rows) || !rows.length) return null;
+    return rows[0];
+  } catch {
+    return null;
+  }
+}
+
+/** Overlay v7 quote fields onto chart meta (quote wins for session prices). */
+function mergeQuoteSummaryIntoMeta(chartMeta, summaryRow) {
+  if (!summaryRow) return chartMeta || {};
+  const out = { ...(chartMeta || {}) };
+  for (const key of QUOTE_SUMMARY_KEYS) {
+    if (summaryRow[key] != null) out[key] = summaryRow[key];
+  }
+  if (summaryRow.regularMarketPreviousClose != null) {
+    out.regularMarketPreviousClose = summaryRow.regularMarketPreviousClose;
+  }
+  return out;
 }
 
 function float(v) {
@@ -126,21 +192,10 @@ function deriveRegularChangeAbs(regularPrice, previousClose, regularChangePct, m
 }
 
 /**
- * Yahoo chart quote (same shape as ILM backend stock_quote.fetch_yahoo_quote).
- * Dev: direct Yahoo. Production: /api/quote serverless proxy on Vercel.
+ * Map merged Yahoo meta → app quote row (unit-testable; used after chart + v7 merge).
  */
-export async function fetchYahooQuote(symbol, { signal } = {}) {
-  const sym = String(symbol || '').trim().toUpperCase();
-  if (!sym) throw new Error('symbol required');
-  const resp = await fetch(chartFetchUrl(sym), {
-    headers: HEADERS,
-    signal,
-  });
-  if (!resp.ok) throw new Error(`Yahoo HTTP ${resp.status}`);
-  const payload = await resp.json();
-  const results = payload?.chart?.result || [];
-  if (!results.length) throw new Error('No quote data');
-  const meta = results[0].meta || {};
+export function mapYahooMetaToQuote(meta, sym, chartResult) {
+  const symbol = sym || meta.symbol || '';
 
   const provisionalPrev = resolvePreviousClose(meta, float(meta.regularMarketPrice));
   const regularPrice = resolveRegularMarketPrice(meta, provisionalPrev);
@@ -179,7 +234,7 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     postmarketPrice = currentPrice;
   }
   if (postmarketPrice == null && (marketState === 'POST' || marketState === 'POSTPOST' || marketState === 'CLOSED')) {
-    const closes = results[0]?.indicators?.quote?.[0]?.close;
+    const closes = chartResult?.indicators?.quote?.[0]?.close;
     if (Array.isArray(closes)) {
       for (let i = closes.length - 1; i >= 0; i -= 1) {
         const c = float(closes[i]);
@@ -236,13 +291,15 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
 
   let postmarketChangePct = null;
   let postmarketChangeAbs = null;
-  if (postmarketPrice != null && previousClose != null) {
-    postmarketChangePct = deriveChangePct(postmarketPrice, previousClose);
-    postmarketChangeAbs = postmarketPrice - previousClose;
-    postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
-  } else if (postmarketPrice != null) {
+  if (postmarketPrice != null && regularPrice != null) {
     postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
     postmarketChangeAbs = float(meta.postMarketChange);
+    if (postmarketChangePct == null) {
+      postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
+    }
+    if (postmarketChangeAbs == null) {
+      postmarketChangeAbs = postmarketPrice - regularPrice;
+    }
     postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
   }
 
@@ -254,8 +311,8 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   );
 
   return {
-    symbol: meta.symbol || sym,
-    currency: meta.currency || (sym.endsWith('.KS') ? 'KRW' : 'USD'),
+    symbol: meta.symbol || symbol,
+    currency: meta.currency || (String(symbol).endsWith('.KS') ? 'KRW' : 'USD'),
     market_state: meta.marketState || '',
     exchange: meta.exchangeName || meta.fullExchangeName || '',
     previous_close: previousClose,
@@ -271,7 +328,27 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     postmarket_change_abs: postmarketChangeAbs,
     fullday_price: fulldayPrice,
     source: 'yahoo_finance',
+    chart_result: chartResult ?? null,
   };
+}
+
+/**
+ * Yahoo chart + v7 quote (same shape as ILM backend stock_quote.fetch_yahoo_quote).
+ * Dev: direct Yahoo. Production: /api/quote + /api/quote-summary proxies on Vercel.
+ */
+export async function fetchYahooQuote(symbol, { signal } = {}) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) throw new Error('symbol required');
+  const [chartResp, summaryRow] = await Promise.all([
+    fetch(chartFetchUrl(sym), { headers: HEADERS, signal }),
+    fetchYahooQuoteSummaryRow(sym, { signal }),
+  ]);
+  if (!chartResp.ok) throw new Error(`Yahoo HTTP ${chartResp.status}`);
+  const payload = await chartResp.json();
+  const results = payload?.chart?.result || [];
+  if (!results.length) throw new Error('No quote data');
+  const meta = mergeQuoteSummaryIntoMeta(results[0].meta || {}, summaryRow);
+  return mapYahooMetaToQuote(meta, sym, results[0]);
 }
 
 const MAX_PARALLEL = 6;

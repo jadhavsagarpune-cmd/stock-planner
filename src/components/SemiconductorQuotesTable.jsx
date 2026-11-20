@@ -186,7 +186,7 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
         >
           {extLabel}
           <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
-            vs prev close
+            vs regular close
           </span>
         </th>
       </tr>

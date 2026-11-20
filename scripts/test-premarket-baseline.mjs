@@ -1,5 +1,5 @@
 /**
- * Extended hours vs previous close (single baseline for pre and after).
+ * Extended hours baselines: pre vs prior close; after vs regular close (Yahoo).
  * Run: node scripts/test-premarket-baseline.mjs
  */
 import { pickExtendedQuote } from '../src/lib/stockFormat.js';
@@ -35,13 +35,13 @@ if (pre.abs == null || Math.abs(pre.abs - (AFTER - PRIOR)) > 0.02) {
 }
 
 const post = pickExtendedQuote(adbeLike, 'post');
-const expectedPostPct = ((AFTER - PRIOR) / PRIOR) * 100;
+const expectedPostPct = ((AFTER - REGULAR) / REGULAR) * 100;
 if (!post || Math.abs(post.pct - expectedPostPct) > 0.02) {
-  console.error('FAIL post vs prior close', { post, expectedPostPct });
+  console.error('FAIL post vs regular close', { post, expectedPostPct });
   process.exit(1);
 }
-if (post.abs == null || Math.abs(post.abs - (AFTER - PRIOR)) > 0.02) {
-  console.error('FAIL post abs vs prior close', post);
+if (post.abs == null || Math.abs(post.abs - (AFTER - REGULAR)) > 0.02) {
+  console.error('FAIL post abs vs regular close', post);
   process.exit(1);
 }
 
@@ -51,6 +51,8 @@ const postQuote = {
   previous_close: PRIOR,
   regular_price: REGULAR,
   postmarket_price: AFTER,
+  postmarket_change_pct: expectedPostPct,
+  postmarket_change_abs: AFTER - REGULAR,
   current_price: AFTER,
 };
 const postDay = pickSessionDayChange(postQuote, POST_EVENING);
@@ -58,7 +60,7 @@ if (!postDay || Math.abs(postDay.pct - expectedPostPct) > 0.02) {
   console.error('FAIL pickSessionDayChange POST derive', postDay);
   process.exit(1);
 }
-if (postDay.referenceLabel !== 'After-hours vs prior close') {
+if (postDay.referenceLabel !== 'After-hours vs regular close') {
   console.error('FAIL POST referenceLabel', postDay.referenceLabel);
   process.exit(1);
 }
@@ -110,4 +112,4 @@ if (preWhenPost != null && preWhenPost.price != null) {
   process.exit(1);
 }
 
-console.log('OK extended-hours previous-close baseline');
+console.log('OK extended-hours Yahoo baselines');
