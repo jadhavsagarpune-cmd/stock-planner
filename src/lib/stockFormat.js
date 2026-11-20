@@ -123,16 +123,19 @@ export function pickExtendedQuote(it, mode) {
       it.postmarket_price
       ?? it.fullday_price
       ?? (isYahooPostMarketState(it.market_state) || !isYahooPreMarketState(it.market_state) ? liveExt : null);
-    const reg = it.regular_price;
     if (price == null) return null;
+    const prev = it.previous_close;
     let pct = null;
     let abs = null;
-    if (reg != null) {
-      pct = derivePctFromBase(price, reg);
-      abs = deriveExtendedChangeAbs(price, reg, pct);
+    if (prev != null && Number(prev) !== 0) {
+      pct = derivePctFromBase(price, prev);
+      abs = deriveExtendedChangeAbs(price, prev, pct);
     } else {
       pct = it.postmarket_change_pct;
-      abs = deriveExtendedChangeAbs(price, reg, pct) ?? it.postmarket_change_abs;
+      abs = it.postmarket_change_abs;
+      if (abs == null && pct != null && prev != null) {
+        abs = deriveExtendedChangeAbs(price, prev, pct);
+      }
     }
     return { price, pct, abs };
   }

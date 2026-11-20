@@ -111,7 +111,10 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
 
   const regularPrice = float(meta.regularMarketPrice);
   let premarketPrice = float(meta.preMarketPrice);
-  const provisionalPrev = float(meta.chartPreviousClose) ?? float(meta.previousClose);
+  const provisionalPrev =
+    float(meta.previousClose)
+    ?? float(meta.regularMarketPreviousClose)
+    ?? float(meta.chartPreviousClose);
   let regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
   if (regularChangePct == null) {
     regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
@@ -203,18 +206,13 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
 
   let postmarketChangePct = null;
   let postmarketChangeAbs = null;
-  if (postmarketPrice != null && regularPrice != null) {
-    postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
-    postmarketChangeAbs = postmarketPrice - regularPrice;
+  if (postmarketPrice != null && previousClose != null) {
+    postmarketChangePct = deriveChangePct(postmarketPrice, previousClose);
+    postmarketChangeAbs = postmarketPrice - previousClose;
     postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
-  } else {
-    postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
-    postmarketChangeAbs =
-      postmarketPrice != null && regularPrice != null ? postmarketPrice - regularPrice : null;
-    if (postmarketChangePct == null) {
-      postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
-    }
-    if (postmarketChangeAbs == null) postmarketChangeAbs = float(meta.postMarketChange);
+  } else if (postmarketPrice != null) {
+    postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
+    postmarketChangeAbs = float(meta.postMarketChange);
     postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
   }
 

@@ -8,7 +8,9 @@ import {
 } from '../lib/stockFormat';
 import {
   extendedColumnLabel,
+  extendedColumnTitle,
   isExtendedColumnMuted,
+  previousCloseColumnTitle,
 } from '../lib/stockMarketSession';
 import {
   SORT_OPTIONS,
@@ -27,12 +29,6 @@ import {
   MARVELL_TICKER_CHIP,
   isMarvellCompany,
 } from '../lib/marvellBrand';
-
-function extendedColumnTitle(mode) {
-  if (mode === 'regular') return 'Extended hours hidden during US regular session';
-  if (mode === 'post') return 'After-hours vs regular close';
-  return 'Pre-market vs prior close';
-}
 
 function QuoteRow({ it, extendedMode, fxRate, compact }) {
   const rowMuted = it.status === 'pending';
@@ -91,6 +87,21 @@ function QuoteRow({ it, extendedMode, fxRate, compact }) {
         className={`${compact ? 'py-1.5' : 'py-2'} pr-2 text-right text-sm whitespace-nowrap ${
           rowMuted ? 'text-slate-600' : ''
         }`}
+        title={previousCloseColumnTitle()}
+      >
+        {rowErr ? (
+          <span className="text-slate-600 font-mono">—</span>
+        ) : (
+          <span className="font-mono tabular-nums text-slate-300 text-xs sm:text-sm">
+            {formatStockPrice(it.previous_close, it.currency)}
+          </span>
+        )}
+      </td>
+      <td
+        className={`${compact ? 'py-1.5' : 'py-2'} pr-2 text-right text-sm whitespace-nowrap ${
+          rowMuted ? 'text-slate-600' : ''
+        }`}
+        title="Regular session last price · day change vs previous close"
       >
         {rowErr ? (
           <span className="text-amber-400/90 text-xs" title={it.error}>
@@ -299,7 +310,18 @@ function SectionBlock({
             <thead>
               <tr className="text-slate-500 text-[11px] uppercase tracking-wide">
                 <th className="font-semibold pb-2 text-left">Company</th>
-                <th className="font-semibold pb-2 text-right w-28 sm:w-36">Current</th>
+                <th
+                  className="font-semibold pb-2 text-right w-20 sm:w-24"
+                  title={previousCloseColumnTitle()}
+                >
+                  Prev close
+                </th>
+                <th
+                  className="font-semibold pb-2 text-right w-28 sm:w-36"
+                  title="Regular session · vs prev close"
+                >
+                  Regular
+                </th>
                 <th
                   className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
                     columnMuted ? 'text-slate-600' : ''
@@ -307,6 +329,9 @@ function SectionBlock({
                   title={extendedColumnTitle(extendedMode)}
                 >
                   {extLabel}
+                  <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
+                    vs prev close
+                  </span>
                 </th>
               </tr>
             </thead>

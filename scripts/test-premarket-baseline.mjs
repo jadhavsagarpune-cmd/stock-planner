@@ -1,5 +1,5 @@
 /**
- * Pre-market vs prior close (Yahoo-style); after-hours vs regular close.
+ * Extended hours vs previous close (single baseline for pre and after).
  * Run: node scripts/test-premarket-baseline.mjs
  */
 import { pickExtendedQuote } from '../src/lib/stockFormat.js';
@@ -31,13 +31,13 @@ if (pre.abs == null || Math.abs(pre.abs - (333.57 - 338.05)) > 0.02) {
 }
 
 const post = pickExtendedQuote(adbeLike, 'post');
-const expectedPostPct = ((333.57 - 336.31) / 336.31) * 100;
+const expectedPostPct = ((333.57 - 338.05) / 338.05) * 100;
 if (!post || Math.abs(post.pct - expectedPostPct) > 0.02) {
-  console.error('FAIL post vs regular close', { post, expectedPostPct });
+  console.error('FAIL post vs prior close', { post, expectedPostPct });
   process.exit(1);
 }
-if (post.abs == null || Math.abs(post.abs + 2.74) > 0.02) {
-  console.error('FAIL post abs', post);
+if (post.abs == null || Math.abs(post.abs - (333.57 - 338.05)) > 0.02) {
+  console.error('FAIL post abs vs prior close', post);
   process.exit(1);
 }
 
@@ -54,6 +54,10 @@ if (!postDay || Math.abs(postDay.pct - expectedPostPct) > 0.02) {
   console.error('FAIL pickSessionDayChange POST derive', postDay);
   process.exit(1);
 }
+if (postDay.referenceLabel !== 'After-hours vs prior close') {
+  console.error('FAIL POST referenceLabel', postDay.referenceLabel);
+  process.exit(1);
+}
 
 /** After hours: stale morning pre must not drive the POST column. */
 const stalePrePost = {
@@ -67,9 +71,8 @@ const stalePrePost = {
   current_price: 333.57,
 };
 const stalePost = pickExtendedQuote(stalePrePost, 'post');
-const expectedStalePostPct = ((333.57 - 336.31) / 336.31) * 100;
-if (!stalePost || stalePost.price !== 333.57 || Math.abs(stalePost.pct - expectedStalePostPct) > 0.02) {
-  console.error('FAIL post must ignore stale premarket_price', { stalePost, expectedStalePostPct });
+if (!stalePost || stalePost.price !== 333.57 || Math.abs(stalePost.pct - expectedPostPct) > 0.02) {
+  console.error('FAIL post must ignore stale premarket_price', { stalePost, expectedPostPct });
   process.exit(1);
 }
 
@@ -87,4 +90,20 @@ if (noPre != null && noPre.price != null) {
   process.exit(1);
 }
 
-console.log('OK premarket baseline');
+/** Outside pre session: no stale -10.71% from polluted Yahoo preMarketChangePercent. */
+const stalePreOutsideSession = {
+  market_state: 'POST',
+  previous_close: 338.05,
+  regular_price: 336.31,
+  premarket_price: null,
+  premarket_change_pct: null,
+  premarket_change_abs: null,
+  postmarket_price: 333.57,
+};
+const preWhenPost = pickExtendedQuote(stalePreOutsideSession, 'pre');
+if (preWhenPost != null && preWhenPost.price != null) {
+  console.error('FAIL pre must be empty outside PRE session', preWhenPost);
+  process.exit(1);
+}
+
+console.log('OK extended-hours previous-close baseline');

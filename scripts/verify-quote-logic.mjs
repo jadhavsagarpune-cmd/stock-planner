@@ -6,6 +6,7 @@ import { pickExtendedQuote } from '../src/lib/stockFormat.js';
 
 const row = {
   symbol: 'MRVL',
+  previous_close: 80.5,
   regular_price: 80.12,
   current_price: 79.85,
   premarket_price: null,
@@ -22,6 +23,11 @@ if (pre != null) {
 }
 if (post?.price !== 79.85) {
   console.error('FAIL post extended from current', post);
+  process.exit(1);
+}
+const expectedPostPct = ((79.85 - 80.5) / 80.5) * 100;
+if (post.pct == null || Math.abs(post.pct - expectedPostPct) > 0.02) {
+  console.error('FAIL post pct vs previous_close', { post, expectedPostPct });
   process.exit(1);
 }
 console.log('OK pickExtendedQuote stale REGULAR', { pre, post });
