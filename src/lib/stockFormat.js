@@ -1,4 +1,8 @@
-import { isUsRegularSessionByClock, normalizeMarketState } from './stockMarketSession.js';
+import {
+  closedExtendedModeByClock,
+  isUsRegularSessionByClock,
+  normalizeMarketState,
+} from './stockMarketSession.js';
 
 /** Watchlist helper copy (Yahoo column semantics). */
 export const WATCHLIST_YAHOO_LEGEND =
@@ -194,10 +198,36 @@ export function pickRegularMarketDisplay(it, now = new Date()) {
     return { price, pct, abs, live: true };
   }
 
+  const clockPre = !isKrx && closedExtendedModeByClock(now) === 'pre';
+  const yahooPre = state === 'PRE';
+  const inUsPre = clockPre || yahooPre;
+
   const price = it.regular_price;
-  if (price == null) return null;
+  if (price == null) return inUsPre ? { price: null, pct: null, abs: null, live: false, preIdle: true } : null;
+
+  const priceN = Number(price);
+  if (
+    inUsPre
+    && previousClose != null
+    && Number(previousClose) !== 0
+    && Math.abs(priceN - Number(previousClose)) / Number(previousClose) < 0.005
+  ) {
+    // Yahoo leaves regularMarketPrice at prior close during PRE — don't duplicate Previous Close column.
+    return { price: null, pct: null, abs: null, live: false, preIdle: true, lastRegularClose: priceN };
+  }
+
+  if (inUsPre) {
+    return {
+      price: priceN,
+      pct: it.regular_change_pct,
+      abs: deriveRegularChangeAbsFromRow(it),
+      live: false,
+      lastRegularClose: true,
+    };
+  }
+
   return {
-    price,
+    price: priceN,
     pct: it.regular_change_pct,
     abs: deriveRegularChangeAbsFromRow(it),
     live: false,

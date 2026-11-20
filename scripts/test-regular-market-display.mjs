@@ -6,6 +6,7 @@ import { pickRegularMarketDisplay } from '../src/lib/stockFormat.js';
 
 const REG_MIDDAY = new Date('2026-11-11T17:00:00.000Z');
 const POST_EVENING = new Date('2026-11-11T22:00:00.000Z');
+const PRE_MORNING = new Date('2026-11-20T09:29:00.000Z');
 
 const liveRow = {
   name: 'MRVL',
@@ -43,6 +44,35 @@ if (closed?.live || closed?.price !== 336.31) {
 }
 if (Math.abs(closed.pct - 142.87) > 0.05) {
   console.error('FAIL session close day pct', closed);
+  process.exit(1);
+}
+
+const mrvlPreRow = {
+  name: 'MRVL',
+  market_state: 'PRE',
+  previous_close: 138.47,
+  regular_price: 138.47,
+  regular_change_pct: 0,
+  premarket_price: 132.63,
+};
+
+const mrvlPre = pickRegularMarketDisplay(mrvlPreRow, PRE_MORNING);
+if (!mrvlPre?.preIdle || mrvlPre.price != null) {
+  console.error('FAIL pre session must not show regular price duped from previous close', mrvlPre);
+  process.exit(1);
+}
+
+const gapPreRow = {
+  name: 'ADBE',
+  market_state: 'PRE',
+  previous_close: 138.47,
+  regular_price: 336.31,
+  regular_change_pct: 142.87,
+};
+
+const gapPre = pickRegularMarketDisplay(gapPreRow, PRE_MORNING);
+if (!gapPre?.lastRegularClose || gapPre.price !== 336.31 || gapPre.preIdle) {
+  console.error('FAIL gap day pre shows last regular close', gapPre);
   process.exit(1);
 }
 

@@ -85,6 +85,7 @@ export function extendedColumnBaselineSubtitle(mode) {
 /** Subtitle under the Regular Market watchlist column header. */
 export function regularMarketColumnSubtitle(extendedMode) {
   if (extendedMode === 'regular') return 'live · vs Previous Close';
+  if (extendedMode === 'pre') return 'last regular session · opens 9:30 ET';
   return 'session close · vs Previous Close';
 }
 
@@ -102,6 +103,9 @@ export function extendedColumnTitle(mode) {
 export function regularMarketColumnTitle(extendedMode) {
   if (extendedMode === 'regular') {
     return 'Regular Market live price (regularMarketPrice / current) · day change vs Previous Close';
+  }
+  if (extendedMode === 'pre') {
+    return 'During pre-market: last regular session close (— when same as Previous Close) · not a live regular quote';
   }
   return 'Regular Market session close · day change vs Previous Close';
 }

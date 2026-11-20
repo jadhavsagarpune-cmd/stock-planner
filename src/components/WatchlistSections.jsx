@@ -116,24 +116,37 @@ function QuoteRow({ it, extendedMode, fxRate, compact }) {
         ) : (
           <div className="flex flex-col items-end gap-0.5">
             <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
-              {formatStockPrice(regularCell?.price, it.currency)}
-              {regularCell?.live ? (
-                <span className="text-emerald-400/80 font-normal text-[9px] sm:text-[10px] ml-1">
-                  live
-                </span>
-              ) : null}
-              {inrHint && (
-                <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
+              {regularCell?.preIdle ? (
+                <span className="text-slate-500 font-normal">—</span>
+              ) : (
+                <>
+                  {formatStockPrice(regularCell?.price, it.currency)}
+                  {regularCell?.live ? (
+                    <span className="text-emerald-400/80 font-normal text-[9px] sm:text-[10px] ml-1">
+                      live
+                    </span>
+                  ) : null}
+                  {regularCell?.lastRegularClose && !regularCell?.preIdle ? (
+                    <span className="text-slate-500 font-normal text-[9px] sm:text-[10px] ml-1 block sm:inline">
+                      last regular close
+                    </span>
+                  ) : null}
+                  {inrHint && (
+                    <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
+                  )}
+                </>
               )}
             </span>
-            <StockPriceChangeLines
-              quote={it}
-              pct={regularCell?.pct ?? it.regular_change_pct}
-              changeAbs={regularCell?.abs}
-              currency={it.currency}
-              fxRate={fxRate}
-              showInrChange={isMrvl}
-            />
+            {!regularCell?.preIdle ? (
+              <StockPriceChangeLines
+                quote={it}
+                pct={regularCell?.pct ?? it.regular_change_pct}
+                changeAbs={regularCell?.abs}
+                currency={it.currency}
+                fxRate={fxRate}
+                showInrChange={isMrvl}
+              />
+            ) : null}
           </div>
         )}
       </td>

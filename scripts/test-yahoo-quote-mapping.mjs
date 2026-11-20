@@ -72,8 +72,43 @@ if (Math.abs(quote.postmarket_change_abs - (333.57 - 336.31)) > 0.05) {
   process.exit(1);
 }
 
+/** MRVL pre-market: v7 prior 138.47; chart previousClose 145.54 must not drive baseline. */
+const MRVL_META_PRE = {
+  symbol: 'MRVL',
+  marketState: 'PRE',
+  regularMarketPrice: 138.47,
+  regularMarketPreviousClose: 138.47,
+  previousClose: 145.54,
+  chartPreviousClose: 145.54,
+  regularMarketChange: -5.84,
+  preMarketPrice: 132.63,
+  preMarketChange: -5.84,
+  preMarketChangePercent: -4.22,
+};
+
+const mrvlPrev = resolvePreviousClose(MRVL_META_PRE, 138.47);
+if (mrvlPrev == null || Math.abs(mrvlPrev - 138.47) > 0.02) {
+  console.error('FAIL MRVL previous_close must be v7 regularMarketPreviousClose', { mrvlPrev });
+  process.exit(1);
+}
+
+const mrvlQuote = mapYahooMetaToQuote(MRVL_META_PRE, 'MRVL');
+const expectedMrvlPrePct = ((132.63 - 138.47) / 138.47) * 100;
+if (Math.abs(mrvlQuote.premarket_change_pct - expectedMrvlPrePct) > 0.05) {
+  console.error('FAIL MRVL premarket_change_pct vs prior', {
+    got: mrvlQuote.premarket_change_pct,
+    expected: expectedMrvlPrePct,
+  });
+  process.exit(1);
+}
+if (Math.abs(mrvlQuote.premarket_change_abs - (132.63 - 138.47)) > 0.02) {
+  console.error('FAIL MRVL premarket_change_abs', mrvlQuote.premarket_change_abs);
+  process.exit(1);
+}
+
 console.log('OK yahoo quote mapping', {
   previous_close: quote.previous_close,
   regular_price: quote.regular_price,
   postmarket_change_pct: quote.postmarket_change_pct,
+  mrvl_premarket_change_pct: mrvlQuote.premarket_change_pct,
 });

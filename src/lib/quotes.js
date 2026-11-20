@@ -109,15 +109,20 @@ function resolvePreviousClose(meta, regularPrice) {
   const chartPrev = float(meta.chartPreviousClose);
   const metaPrev = float(meta.previousClose);
   const regMktPrev = float(meta.regularMarketPreviousClose);
+  const marketState = String(meta.marketState || '').trim().toUpperCase();
+  const inPre = marketState === 'PRE' || marketState === 'PREPRE';
+  // v7 regularMarketPreviousClose is authoritative; chartPreviousClose can lag (e.g. MRVL 145.54 vs 138.47).
   let previousClose = regMktPrev ?? metaPrev;
 
   const chg = float(meta.regularMarketChange);
-  if (previousClose == null && regularPrice != null && chg != null) {
+  const trustFromChangeHeuristic = regMktPrev == null && !inPre;
+
+  if (trustFromChangeHeuristic && previousClose == null && regularPrice != null && chg != null) {
     const fromChange = regularPrice - chg;
     if (fromChange > 0) previousClose = fromChange;
   }
 
-  if (chartPrev != null) {
+  if (chartPrev != null && regMktPrev == null) {
     if (previousClose == null) {
       previousClose = chartPrev;
     } else if (Math.abs(chartPrev - previousClose) / previousClose > CHART_PREV_MAX_DRIFT) {
@@ -125,7 +130,12 @@ function resolvePreviousClose(meta, regularPrice) {
     }
   }
 
-  if (previousClose != null && regularPrice != null && chg != null) {
+  if (
+    trustFromChangeHeuristic
+    && previousClose != null
+    && regularPrice != null
+    && chg != null
+  ) {
     const fromChange = regularPrice - chg;
     if (fromChange > 0) {
       const drift = Math.abs(fromChange - previousClose) / previousClose;
@@ -148,6 +158,10 @@ function resolvePreviousClose(meta, regularPrice) {
 function resolveRegularMarketPrice(meta, previousClose) {
   let regularPrice = float(meta.regularMarketPrice);
   if (regularPrice == null || previousClose == null || previousClose <= 0) return regularPrice;
+
+  const marketState = String(meta.marketState || '').trim().toUpperCase();
+  const inPre = marketState === 'PRE' || marketState === 'PREPRE';
+  if (inPre) return regularPrice;
 
   const chg = float(meta.regularMarketChange);
   const chgPct = yahooChangePct(float(meta.regularMarketChangePercent));

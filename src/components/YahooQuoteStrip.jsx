@@ -63,22 +63,33 @@ export default function YahooQuoteStrip({
           ) : null}
         </div>
         <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
-          {formatStockPrice(regularCell?.price ?? quote.regular_price, currency)}
-          {regularInr && (
-            <span className="text-violet-300/90 font-normal ml-1 text-[10px] sm:text-xs">
-              ({regularInr})
-            </span>
+          {regularCell?.preIdle ? (
+            <span className="text-slate-500">—</span>
+          ) : (
+            <>
+              {formatStockPrice(regularCell?.price ?? quote.regular_price, currency)}
+              {regularCell?.lastRegularClose && !regularCell?.preIdle ? (
+                <span className="text-slate-500 font-normal text-[10px] ml-1">last regular close</span>
+              ) : null}
+              {regularInr && (
+                <span className="text-violet-300/90 font-normal ml-1 text-[10px] sm:text-xs">
+                  ({regularInr})
+                </span>
+              )}
+            </>
           )}
         </div>
-        <StockPriceChangeLines
-          quote={quote}
-          pct={regularCell?.pct ?? quote.regular_change_pct}
-          changeAbs={regularCell?.abs ?? quote.regular_change_abs}
-          currency={currency}
-          fxRate={fxRate}
-          showInrChange={showInrChange}
-          className="!items-start mt-0.5"
-        />
+        {!regularCell?.preIdle ? (
+          <StockPriceChangeLines
+            quote={quote}
+            pct={regularCell?.pct ?? quote.regular_change_pct}
+            changeAbs={regularCell?.abs ?? quote.regular_change_abs}
+            currency={currency}
+            fxRate={fxRate}
+            showInrChange={showInrChange}
+            className="!items-start mt-0.5"
+          />
+        ) : null}
       </div>
       {showAfter && ext?.price != null && (
         <div>
