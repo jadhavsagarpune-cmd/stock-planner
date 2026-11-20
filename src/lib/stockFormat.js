@@ -6,7 +6,7 @@ import {
 
 /** Watchlist helper copy (Yahoo column semantics). */
 export const WATCHLIST_YAHOO_LEGEND =
-  "Previous Close = last session's closing price · Pre-market = before the open (vs Previous Close) · Regular Market = live price only while the exchange is open · After Market = extended hours";
+  'Two columns: Previous Close + session price (Pre-market · Live · After Market) — labels change with the US session';
 
 /** Pre vs last regular session price (not vs prior close). */
 export function preChangePctVsRegular(premarketPrice, regularPrice) {

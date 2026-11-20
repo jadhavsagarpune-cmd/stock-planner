@@ -114,12 +114,35 @@ export function previousCloseColumnTitle() {
   return 'Previous Close (Yahoo regularMarketPreviousClose / previousClose) — prior session only';
 }
 
-/** Watchlist: only two price columns — Previous Close + (Pre | After | live Regular). */
+/** Watchlist: only two price columns — Previous Close + (Pre | After | Live). */
 export function watchlistTwoPriceColumns(extendedMode) {
   if (extendedMode === 'regular') {
     return { showRegularMarket: true, showExtended: false };
   }
   return { showRegularMarket: false, showExtended: true };
+}
+
+/** Second watchlist price column — label follows US session (PRE / After / Live). */
+export function watchlistSecondColumnLabel(extendedMode) {
+  if (extendedMode === 'regular') {
+    return {
+      label: 'Live',
+      subtitle: 'vs Previous Close',
+      title: regularMarketColumnTitle('regular'),
+    };
+  }
+  if (extendedMode === 'post') {
+    return {
+      label: 'After Market',
+      subtitle: extendedColumnBaselineSubtitle('post'),
+      title: extendedColumnTitle('post'),
+    };
+  }
+  return {
+    label: 'Pre-market',
+    subtitle: extendedColumnBaselineSubtitle('pre'),
+    title: extendedColumnTitle('pre'),
+  };
 }
 
 /** Heatmap header badge + helper copy for the active session. */

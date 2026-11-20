@@ -16,6 +16,7 @@ import {
   previousCloseColumnTitle,
   regularMarketColumnSubtitle,
   regularMarketColumnTitle,
+  watchlistSecondColumnLabel,
   watchlistTwoPriceColumns,
 } from '../lib/stockMarketSession';
 import {
@@ -249,7 +250,7 @@ function SectionBlock({
   const movers = topMoversByRegularPct(sectionItems);
   const layout = watchlistTwoPriceColumns(extendedMode);
   const columnMuted = isExtendedColumnMuted(extendedMode);
-  const extLabel = extendedColumnLabel(extendedMode);
+  const col2 = watchlistSecondColumnLabel(extendedMode);
 
   return (
     <section className="rounded-xl border border-slate-700/90 bg-slate-900/60 overflow-hidden">
@@ -334,30 +335,17 @@ function SectionBlock({
                 >
                   Previous Close
                 </th>
-                {layout.showRegularMarket ? (
-                  <th
-                    className="font-semibold pb-2 text-right w-28 sm:w-36"
-                    title={regularMarketColumnTitle(extendedMode)}
-                  >
-                    <span className="normal-case tracking-normal">Regular Market</span>
-                    <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
-                      {regularMarketColumnSubtitle(extendedMode)}
-                    </span>
-                  </th>
-                ) : null}
-                {layout.showExtended ? (
-                  <th
-                    className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
-                      columnMuted ? 'text-slate-600' : ''
-                    }`}
-                    title={extendedColumnTitle(extendedMode)}
-                  >
-                    {extLabel}
-                    <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
-                      {extendedColumnBaselineSubtitle(extendedMode)}
-                    </span>
-                  </th>
-                ) : null}
+                <th
+                  className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
+                    columnMuted && !layout.showRegularMarket ? 'text-slate-600' : ''
+                  }`}
+                  title={col2.title}
+                >
+                  <span className="normal-case tracking-normal">{col2.label}</span>
+                  <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
+                    {col2.subtitle}
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
