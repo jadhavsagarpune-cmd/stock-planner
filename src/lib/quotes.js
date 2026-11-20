@@ -111,8 +111,24 @@ function resolvePreviousClose(meta, regularPrice) {
   const regMktPrev = float(meta.regularMarketPreviousClose);
   const marketState = String(meta.marketState || '').trim().toUpperCase();
   const inPre = marketState === 'PRE' || marketState === 'PREPRE';
+  const clockPre = closedExtendedModeByClock(new Date()) === 'pre';
+  const regPx = float(meta.regularMarketPrice);
+  const prePx =
+    float(meta.preMarketPrice)
+    ?? ((inPre || clockPre) ? float(meta.currentPrice) : null);
 
-  const prePx = float(meta.preMarketPrice);
+  if ((inPre || clockPre) && regPx != null && prePx != null) {
+    const spread = Math.abs(regPx - prePx) / prePx;
+    // During PRE, Yahoo keeps regularMarketPrice at prior close (e.g. 138.47) while
+    // meta.previousClose/chart can lag (e.g. MRVL 145.54 on the wire).
+    if (spread > 0.005 && spread < 0.35) {
+      if (regMktPrev != null && Math.abs(regPx - regMktPrev) / regMktPrev < 0.03) {
+        return regMktPrev;
+      }
+      return regPx;
+    }
+  }
+
   const preChg = float(meta.preMarketChange);
   let derivedFromPre = null;
   if (prePx != null && preChg != null) {

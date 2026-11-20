@@ -92,6 +92,30 @@ if (mrvlPrev == null || Math.abs(mrvlPrev - 138.47) > 0.02) {
   process.exit(1);
 }
 
+/** Live-shaped bug: chart previousClose 145.54 but regularMarketPrice 138.47 during PRE. */
+const MRVL_LIVE_SHAPED = {
+  symbol: 'MRVL',
+  marketState: 'REGULAR',
+  regularMarketPrice: 138.47,
+  regularMarketPreviousClose: undefined,
+  previousClose: 145.54,
+  chartPreviousClose: 145.54,
+  preMarketPrice: 132.3,
+  preMarketChange: -13.24,
+  currentPrice: 132.3,
+};
+const livePrev = resolvePreviousClose(MRVL_LIVE_SHAPED, 138.47);
+if (livePrev == null || Math.abs(livePrev - 138.47) > 0.02) {
+  console.error('FAIL MRVL live-shaped prior must be regularMarketPrice 138.47', { livePrev });
+  process.exit(1);
+}
+const liveQuote = mapYahooMetaToQuote(MRVL_LIVE_SHAPED, 'MRVL');
+const livePrePct = ((132.3 - 138.47) / 138.47) * 100;
+if (Math.abs(liveQuote.premarket_change_pct - livePrePct) > 0.15) {
+  console.error('FAIL MRVL pre % vs 138.47', liveQuote.premarket_change_pct, livePrePct);
+  process.exit(1);
+}
+
 const mrvlQuote = mapYahooMetaToQuote(MRVL_META_PRE, 'MRVL');
 const expectedMrvlPrePct = ((132.63 - 138.47) / 138.47) * 100;
 if (Math.abs(mrvlQuote.premarket_change_pct - expectedMrvlPrePct) > 0.05) {
