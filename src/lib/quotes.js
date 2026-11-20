@@ -393,15 +393,23 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     fetch(chartFetchUrl(sym), { headers: HEADERS, signal }),
     fetchYahooQuoteSummaryRow(sym, { signal }),
   ]);
+  if (chartResp.ok) {
+    const payload = await chartResp.json();
+    const results = payload?.chart?.result || [];
+    if (results.length) {
+      const meta = mergeQuoteSummaryIntoMeta(results[0].meta || {}, summaryRow);
+      return mapYahooMetaToQuote(meta, sym, results[0]);
+    }
+  }
+  if (summaryRow) {
+    const meta = mergeQuoteSummaryIntoMeta({}, summaryRow);
+    return mapYahooMetaToQuote(meta, sym, null);
+  }
   if (!chartResp.ok) throw new Error(`Yahoo HTTP ${chartResp.status}`);
-  const payload = await chartResp.json();
-  const results = payload?.chart?.result || [];
-  if (!results.length) throw new Error('No quote data');
-  const meta = mergeQuoteSummaryIntoMeta(results[0].meta || {}, summaryRow);
-  return mapYahooMetaToQuote(meta, sym, results[0]);
+  throw new Error('No quote data');
 }
 
-const MAX_PARALLEL = 6;
+const MAX_PARALLEL = 4;
 
 export async function fetchWatchlistQuotes(entries, onProgress) {
   const items = entries.map(([label, symbol]) => ({
