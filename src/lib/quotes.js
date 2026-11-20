@@ -1,16 +1,19 @@
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
 const HEADERS = {
   Accept: 'application/json',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 };
+
+const CHART_QS = 'interval=1m&range=1d&includePrePost=true';
 
 /** Production (Vercel): same-origin proxy avoids browser CORS blocks on Yahoo. */
 function chartFetchUrl(symbol) {
   const sym = String(symbol || '').trim().toUpperCase();
-  const qs = 'interval=1m&range=1d';
-  if (import.meta.env.DEV) {
-    return `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(sym))}?${qs}`;
-  }
-  return `/api/quote?symbol=${encodeURIComponent(sym)}&${qs}`;
+  const direct = `${YAHOO_CHART.replace('{symbol}', encodeURIComponent(sym))}?${CHART_QS}`;
+  if (import.meta.env?.DEV) return direct;
+  if (typeof window === 'undefined') return direct;
+  return `/api/quote?symbol=${encodeURIComponent(sym)}&${CHART_QS}`;
 }
 
 function float(v) {
@@ -31,38 +34,68 @@ function deriveChangePct(price, base) {
   return ((price - base) / base) * 100;
 }
 
-/** 1d chart meta can ship a chartPreviousClose far from regularMarketPrice (splits, window quirks). */
-function resolvePreviousClose(meta, regularPrice, regularChangePct) {
+/** Yahoo quote page uses regularMarketPreviousClose; chartPreviousClose can be stale on big-move days. */
+const CHART_PREV_MAX_DRIFT = 0.12;
+
+function resolvePreviousClose(meta, regularPrice) {
   const chartPrev = float(meta.chartPreviousClose);
   const metaPrev = float(meta.previousClose);
   const regMktPrev = float(meta.regularMarketPreviousClose);
-  let previousClose = metaPrev ?? regMktPrev ?? chartPrev;
-
-  if (previousClose == null || regularPrice == null || regularPrice <= 0 || previousClose <= 0) {
-    return previousClose;
-  }
-
-  const rel = Math.abs(regularPrice - previousClose) / previousClose;
-  if (rel <= 0.35) return previousClose;
+  let previousClose = regMktPrev ?? metaPrev;
 
   const chg = float(meta.regularMarketChange);
-  if (chg != null) {
-    const derived = regularPrice - chg;
-    if (derived > 0 && Math.abs(regularPrice - derived) / derived < 0.2) return derived;
+  if (previousClose == null && regularPrice != null && chg != null) {
+    const fromChange = regularPrice - chg;
+    if (fromChange > 0) previousClose = fromChange;
   }
-  if (regularChangePct != null) {
-    const derived = regularPrice / (1 + regularChangePct / 100);
-    if (Number.isFinite(derived) && derived > 0 && Math.abs(regularPrice - derived) / derived < 0.2) {
-      return derived;
+
+  if (chartPrev != null) {
+    if (previousClose == null) {
+      previousClose = chartPrev;
+    } else if (Math.abs(chartPrev - previousClose) / previousClose > CHART_PREV_MAX_DRIFT) {
+      // e.g. ADBE chartPreviousClose ~338 while quote prior ~138 — ignore chart field
     }
   }
-  for (const alt of [metaPrev, regMktPrev]) {
-    if (alt != null && alt > 0 && alt !== previousClose) {
-      const relAlt = Math.abs(regularPrice - alt) / alt;
-      if (relAlt < rel) return alt;
+
+  if (previousClose != null && regularPrice != null && chg != null) {
+    const fromChange = regularPrice - chg;
+    if (fromChange > 0) {
+      const drift = Math.abs(fromChange - previousClose) / previousClose;
+      if (drift > 0.02 && drift <= CHART_PREV_MAX_DRIFT) {
+        previousClose = fromChange;
+      } else if (
+        drift > CHART_PREV_MAX_DRIFT
+        && regMktPrev != null
+        && Math.abs(fromChange - regMktPrev) / regMktPrev < 0.02
+      ) {
+        previousClose = regMktPrev;
+      }
     }
   }
+
   return previousClose;
+}
+
+/** Chart meta occasionally leaves regularMarketPrice at prior close while change fields moved. */
+function resolveRegularMarketPrice(meta, previousClose) {
+  let regularPrice = float(meta.regularMarketPrice);
+  if (regularPrice == null || previousClose == null || previousClose <= 0) return regularPrice;
+
+  const chg = float(meta.regularMarketChange);
+  const chgPct = yahooChangePct(float(meta.regularMarketChangePercent));
+  const stuckAtPrior = Math.abs(regularPrice - previousClose) / previousClose < 0.015;
+
+  if (stuckAtPrior && chg != null && Math.abs(chg) > 0.01) {
+    const lifted = previousClose + chg;
+    if (lifted > 0 && Math.abs(lifted - previousClose) / previousClose > 0.03) {
+      regularPrice = lifted;
+    }
+  } else if (stuckAtPrior && chgPct != null && Math.abs(chgPct) > 3) {
+    const lifted = previousClose * (1 + chgPct / 100);
+    if (Number.isFinite(lifted) && lifted > 0) regularPrice = lifted;
+  }
+
+  return regularPrice;
 }
 
 /** Align absolute change sign with derived percentage. */
@@ -109,17 +142,14 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   if (!results.length) throw new Error('No quote data');
   const meta = results[0].meta || {};
 
-  const regularPrice = float(meta.regularMarketPrice);
+  const provisionalPrev = resolvePreviousClose(meta, float(meta.regularMarketPrice));
+  const regularPrice = resolveRegularMarketPrice(meta, provisionalPrev);
   let premarketPrice = float(meta.preMarketPrice);
-  const provisionalPrev =
-    float(meta.previousClose)
-    ?? float(meta.regularMarketPreviousClose)
-    ?? float(meta.chartPreviousClose);
   let regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
   if (regularChangePct == null) {
     regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
   }
-  const previousClose = resolvePreviousClose(meta, regularPrice, regularChangePct);
+  const previousClose = resolvePreviousClose(meta, regularPrice);
   const regularFromPrev = deriveChangePct(regularPrice, previousClose);
   if (regularFromPrev != null) regularChangePct = regularFromPrev;
   let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
@@ -302,6 +332,8 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
 export async function fetchMrvlQuote() {
   return fetchYahooQuote('MRVL');
 }
+
+export { resolvePreviousClose, resolveRegularMarketPrice };
 
 function normalizeUsdInrRate(quote) {
   const sym = String(quote.symbol || '').toUpperCase();
