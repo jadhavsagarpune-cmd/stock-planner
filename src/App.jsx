@@ -293,6 +293,10 @@ export default function App() {
       <p className="text-[11px] text-slate-600 mt-4 leading-relaxed">
         Alerts need this tab open (browser Notification API). iOS Safari limits background
         notifications; keep the PWA/home-screen tab foreground for reliable polling.
+        <span className="block mt-1 text-slate-700 font-mono tabular-nums">
+          Build {typeof __APP_BUILD_SHA__ !== 'undefined' ? __APP_BUILD_SHA__ : 'dev'} · Yahoo v7
+          quote
+        </span>
       </p>
     </div>
   );
