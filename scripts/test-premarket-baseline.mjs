@@ -60,7 +60,7 @@ if (!postDay || Math.abs(postDay.pct - expectedPostPct) > 0.02) {
   console.error('FAIL pickSessionDayChange POST derive', postDay);
   process.exit(1);
 }
-if (postDay.referenceLabel !== 'After Market vs Regular Market close') {
+if (postDay.referenceLabel !== 'After Market vs Previous Close') {
   console.error('FAIL POST referenceLabel', postDay.referenceLabel);
   process.exit(1);
 }
