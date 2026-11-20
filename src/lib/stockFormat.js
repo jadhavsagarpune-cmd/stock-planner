@@ -96,17 +96,39 @@ function currentExtendedPrice(it) {
   return c;
 }
 
+function isYahooPreMarketState(marketState) {
+  const s = String(marketState || '').trim().toUpperCase();
+  return s === 'PRE' || s === 'PREPRE';
+}
+
+function isYahooPostMarketState(marketState) {
+  const s = String(marketState || '').trim().toUpperCase();
+  return s === 'POST' || s === 'POSTPOST' || s === 'CLOSED';
+}
+
+function derivePctFromBase(price, base) {
+  if (price == null || base == null || Number(base) === 0) return null;
+  const p = Number(price);
+  const b = Number(base);
+  if (Number.isNaN(p) || Number.isNaN(b)) return null;
+  return ((p - b) / b) * 100;
+}
+
 /** Extended-hours cell for watchlist row (pre or after session). */
 export function pickExtendedQuote(it, mode) {
   if (!it || mode === 'regular') return null;
   if (mode === 'post') {
+    const liveExt = currentExtendedPrice(it);
     const price =
-      it.postmarket_price ?? it.fullday_price ?? currentExtendedPrice(it) ?? it.premarket_price;
+      it.postmarket_price
+      ?? it.fullday_price
+      ?? (isYahooPostMarketState(it.market_state) || !isYahooPreMarketState(it.market_state) ? liveExt : null);
     const reg = it.regular_price;
+    if (price == null) return null;
     let pct = null;
     let abs = null;
-    if (price != null && reg != null) {
-      pct = preChangePctVsRegular(price, reg);
+    if (reg != null) {
+      pct = derivePctFromBase(price, reg);
       abs = deriveExtendedChangeAbs(price, reg, pct);
     } else {
       pct = it.postmarket_change_pct;
@@ -114,21 +136,22 @@ export function pickExtendedQuote(it, mode) {
     }
     return { price, pct, abs };
   }
-  const price = it.premarket_price ?? currentExtendedPrice(it);
+  const price =
+    it.premarket_price
+    ?? (isYahooPreMarketState(it.market_state) ? currentExtendedPrice(it) : null);
+  if (price == null) return null;
   const prev = it.previous_close;
   let pct = null;
   let abs = null;
-  if (price != null && prev != null && Number(prev) !== 0) {
-    pct = ((Number(price) - Number(prev)) / Number(prev)) * 100;
+  if (prev != null && Number(prev) !== 0) {
+    pct = derivePctFromBase(price, prev);
     abs = deriveExtendedChangeAbs(price, prev, pct);
   } else {
     pct = it.premarket_change_pct;
-    if (pct == null && price != null && it.regular_price != null) {
-      pct = preChangePctVsRegular(price, it.regular_price);
-    }
-    const base = prev != null ? prev : it.regular_price;
     abs = it.premarket_change_abs;
-    if (abs == null) abs = deriveExtendedChangeAbs(price, base, pct);
+    if (abs == null && pct != null && prev != null) {
+      abs = deriveExtendedChangeAbs(price, prev, pct);
+    }
   }
   return { price, pct, abs };
 }

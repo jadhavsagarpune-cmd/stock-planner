@@ -1,8 +1,4 @@
-import {
-  deriveExtendedChangeAbs,
-  deriveRegularChangeAbsFromRow,
-  preChangePctVsRegular,
-} from './stockFormat.js';
+import { deriveExtendedChangeAbs, deriveRegularChangeAbsFromRow } from './stockFormat.js';
 import {
   closedExtendedModeByClock,
   isUsRegularSessionByClock,
@@ -118,10 +114,10 @@ export function pickSessionDayChange(quote, now = new Date()) {
     const price = float(quote.premarket_price) ?? extendedCurrentPrice(quote) ?? float(quote.current_price);
     let pct = null;
     let abs = null;
-    if (price != null && previousClose != null) {
+    if (price != null && previousClose != null && previousClose !== 0) {
       pct = ((price - previousClose) / previousClose) * 100;
       abs = price - previousClose;
-    } else {
+    } else if (price != null) {
       pct = float(quote.premarket_change_pct);
       abs = float(quote.premarket_change_abs);
     }
@@ -138,10 +134,10 @@ export function pickSessionDayChange(quote, now = new Date()) {
       ?? float(quote.current_price);
     let pct = null;
     let abs = null;
-    if (price != null && regular != null) {
-      pct = preChangePctVsRegular(price, regular);
+    if (price != null && regular != null && regular !== 0) {
+      pct = ((price - regular) / regular) * 100;
       abs = price - regular;
-    } else {
+    } else if (price != null) {
       pct = float(quote.postmarket_change_pct);
       abs = float(quote.postmarket_change_abs);
     }

@@ -2,8 +2,8 @@ import {
   formatChangePct,
   formatStockPrice,
   pickExtendedQuote,
-  preChangePctVsRegular,
 } from './stockFormat.js';
+import { resolveUsExtendedColumnMode } from './stockMarketSession.js';
 
 export const HEATMAP_BASELINE_STORAGE_KEY = 'stock-planner.heatmapBaseline';
 
@@ -13,7 +13,7 @@ export const HEATMAP_BASELINES = [
     id: 'pre',
     label: 'Pre-market',
     badge: 'PRE',
-    subtitle: '% vs last regular session close',
+    subtitle: '% vs prior session close (pre-market only)',
     needsSessionPrice: true,
   },
   {
@@ -149,10 +149,12 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
       const n = Number(it.regular_change_pct);
       return it.regular_change_pct == null || Number.isNaN(n) ? null : n;
     }
+    const sessionMode = resolveUsExtendedColumnMode(it.market_state);
+    if (sessionMode !== 'pre') return null;
     const ext = pickExtendedQuote(it, 'pre');
     if (ext?.pct != null && !Number.isNaN(Number(ext.pct))) return Number(ext.pct);
     const price = it.premarket_price ?? it.current_price;
-    const base = it.previous_close ?? it.regular_price;
+    const base = it.previous_close;
     return deriveChangePct(price, base);
   }
 
@@ -184,6 +186,7 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
 export function pickHeatmapPriceForBaseline(it, baselineId, daily = null) {
   if (!it || it.status !== 'done') return null;
   if (baselineId === 'pre') {
+    if (resolveUsExtendedColumnMode(it.market_state) !== 'pre') return null;
     const ext = pickExtendedQuote(it, 'pre');
     return ext?.price ?? it.premarket_price ?? pickCurrentHeatmapPrice(it);
   }

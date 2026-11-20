@@ -18,7 +18,7 @@ import {
 function extendedColumnTitle(mode) {
   if (mode === 'regular') return 'Extended hours hidden during US regular session';
   if (mode === 'post') return 'After-hours vs regular close';
-  return 'Pre-market vs regular close';
+  return 'Pre-market vs prior close';
 }
 
 function QuoteRow({ it, extendedMode, fxRate }) {

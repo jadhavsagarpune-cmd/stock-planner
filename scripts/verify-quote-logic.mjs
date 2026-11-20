@@ -16,8 +16,12 @@ const row = {
 const pre = pickExtendedQuote(row, 'pre');
 const post = pickExtendedQuote(row, 'post');
 
-if (pre?.price !== 79.85 || post?.price !== 79.85) {
-  console.error('FAIL', { pre, post });
+if (pre != null) {
+  console.error('FAIL pre must be null without PRE market_state', pre);
+  process.exit(1);
+}
+if (post?.price !== 79.85) {
+  console.error('FAIL post extended from current', post);
   process.exit(1);
 }
 console.log('OK pickExtendedQuote stale REGULAR', { pre, post });

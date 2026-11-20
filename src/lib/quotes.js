@@ -35,7 +35,8 @@ function deriveChangePct(price, base) {
 function resolvePreviousClose(meta, regularPrice, regularChangePct) {
   const chartPrev = float(meta.chartPreviousClose);
   const metaPrev = float(meta.previousClose);
-  let previousClose = chartPrev ?? metaPrev;
+  const regMktPrev = float(meta.regularMarketPreviousClose);
+  let previousClose = metaPrev ?? regMktPrev ?? chartPrev;
 
   if (previousClose == null || regularPrice == null || regularPrice <= 0 || previousClose <= 0) {
     return previousClose;
@@ -55,9 +56,11 @@ function resolvePreviousClose(meta, regularPrice, regularChangePct) {
       return derived;
     }
   }
-  if (metaPrev != null && metaPrev > 0 && metaPrev !== chartPrev) {
-    const relMeta = Math.abs(regularPrice - metaPrev) / metaPrev;
-    if (relMeta < rel) return metaPrev;
+  for (const alt of [metaPrev, regMktPrev]) {
+    if (alt != null && alt > 0 && alt !== previousClose) {
+      const relAlt = Math.abs(regularPrice - alt) / alt;
+      if (relAlt < rel) return alt;
+    }
   }
   return previousClose;
 }
@@ -119,9 +122,6 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
   if (premarketChangePct == null && premarketPrice != null && previousClose != null) {
     premarketChangePct = deriveChangePct(premarketPrice, previousClose);
-  }
-  if (premarketChangePct == null && premarketPrice != null) {
-    premarketChangePct = deriveChangePct(premarketPrice, regularPrice ?? previousClose);
   }
   let premarketChangeAbs = float(meta.preMarketChange);
   if (premarketChangeAbs == null && premarketPrice != null && previousClose != null) {
@@ -188,20 +188,35 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     if (premarketPrice == null && preSession) premarketPrice = fulldayPrice;
   }
 
-  if (premarketPrice != null && previousClose != null) {
+  if (preSession && premarketPrice != null && previousClose != null) {
     premarketChangePct = deriveChangePct(premarketPrice, previousClose);
     premarketChangeAbs = premarketPrice - previousClose;
     premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
   }
 
-  let postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
-  let postmarketChangeAbs =
-    postmarketPrice != null && regularPrice != null ? postmarketPrice - regularPrice : null;
-  if (postmarketChangePct == null) {
-    postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
+  // Morning pre fields are meaningless after the open; after-hours UI must not reuse them.
+  if (!preSession) {
+    premarketPrice = null;
+    premarketChangePct = null;
+    premarketChangeAbs = null;
   }
-  if (postmarketChangeAbs == null) postmarketChangeAbs = float(meta.postMarketChange);
-  postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
+
+  let postmarketChangePct = null;
+  let postmarketChangeAbs = null;
+  if (postmarketPrice != null && regularPrice != null) {
+    postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
+    postmarketChangeAbs = postmarketPrice - regularPrice;
+    postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
+  } else {
+    postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
+    postmarketChangeAbs =
+      postmarketPrice != null && regularPrice != null ? postmarketPrice - regularPrice : null;
+    if (postmarketChangePct == null) {
+      postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
+    }
+    if (postmarketChangeAbs == null) postmarketChangeAbs = float(meta.postMarketChange);
+    postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
+  }
 
   const regularChangeAbs = deriveRegularChangeAbs(
     regularPrice,
@@ -265,6 +280,7 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
           postmarket_change_pct: quote.postmarket_change_pct,
           postmarket_change_abs: quote.postmarket_change_abs,
           current_price: quote.current_price,
+          fullday_price: quote.fullday_price,
           market_state: quote.market_state,
           exchange: quote.exchange,
         };
