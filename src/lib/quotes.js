@@ -1,3 +1,5 @@
+import { closedExtendedModeByClock } from './stockMarketSession.js';
+
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
 const YAHOO_QUOTE_V7 = 'https://query1.finance.yahoo.com/v7/finance/quote';
 const HEADERS = {
@@ -267,23 +269,24 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     currentPrice = fulldayPrice;
   }
   const preSession = marketState === 'PRE' || marketState === 'PREPRE';
+  const clockPre = closedExtendedModeByClock(new Date()) === 'pre';
   if (
     regularPrice != null
     && fulldayPrice != null
     && Math.abs(fulldayPrice - regularPrice) >= 0.01
   ) {
     if (postmarketPrice == null && !preSession) postmarketPrice = fulldayPrice;
-    if (premarketPrice == null && preSession) premarketPrice = fulldayPrice;
+    if (premarketPrice == null && (preSession || clockPre)) premarketPrice = fulldayPrice;
   }
 
-  if (preSession && premarketPrice != null && previousClose != null) {
+  if ((preSession || clockPre) && premarketPrice != null && previousClose != null) {
     premarketChangePct = deriveChangePct(premarketPrice, previousClose);
     premarketChangeAbs = premarketPrice - previousClose;
     premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
   }
 
   // Morning pre fields are meaningless after the open; after-hours UI must not reuse them.
-  if (!preSession) {
+  if (!preSession && !clockPre) {
     premarketPrice = null;
     premarketChangePct = null;
     premarketChangeAbs = null;

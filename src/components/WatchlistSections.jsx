@@ -7,6 +7,7 @@ import {
   pickExtendedQuote,
 } from '../lib/stockFormat';
 import {
+  extendedColumnBaselineSubtitle,
   extendedColumnLabel,
   extendedColumnTitle,
   isExtendedColumnMuted,
@@ -330,7 +331,7 @@ function SectionBlock({
                 >
                   {extLabel}
                   <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
-                    vs regular close
+                    {extendedColumnBaselineSubtitle(extendedMode)}
                   </span>
                 </th>
               </tr>

@@ -1,5 +1,17 @@
 # Vercel dashboard checklist (stock-planner)
 
+## Git vs live (verify deploy)
+
+| Check | Expected |
+|--------|-----------|
+| **GitHub repo** | `https://github.com/jadhavsagarpune-cmd/stock-planner` (standalone repo — **not** `iliad_lab_manager/stock-planner`) |
+| **Production URL** | `https://stock-planner-three.vercel.app/` |
+| **Root Directory** | `.` (repository root) |
+| **Live proof** | Page footer: `Build <7-char git sha> · Yahoo v7 quote` matches `git rev-parse --short HEAD` on `main` |
+| **Column headers** | `Prev close` · `Regular` · `Pre` / `After hrs` with subtitle `vs prev close` (pre) or `vs regular close` (post) |
+
+Pushes only deploy when Vercel is linked to **this** GitHub repo at **root** `.`. A monorepo import with Root Directory = `stock-planner` inside another repo will **not** pick up commits pushed only to `jadhavsagarpune-cmd/stock-planner`.
+
 **Project:** `jadhavsagarpune-cmd/stock-planner`  
 **Settings → Build & Deployment**
 

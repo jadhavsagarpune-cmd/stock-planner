@@ -75,6 +75,13 @@ export function extendedColumnLabel(mode) {
   return mode === 'post' ? 'After hrs' : 'Pre';
 }
 
+/** Subtitle under the extended-hours watchlist column header. */
+export function extendedColumnBaselineSubtitle(mode) {
+  if (mode === 'post') return 'vs regular close';
+  if (mode === 'pre') return 'vs prev close';
+  return '';
+}
+
 /** Tooltip for pre/post watchlist column headers and cells. */
 export function extendedColumnTitle(mode) {
   if (mode === 'regular') {
