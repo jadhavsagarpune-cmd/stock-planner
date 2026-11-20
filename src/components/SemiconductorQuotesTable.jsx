@@ -13,6 +13,7 @@ import {
   regularMarketColumnSubtitle,
   regularMarketColumnTitle,
   resolveUsExtendedColumnMode,
+  watchlistTwoPriceColumns,
 } from '../lib/stockMarketSession';
 import { exchangeHint } from '../data/watchlist';
 import StockPriceChangeLines from './StockPriceChangeLines';
@@ -25,7 +26,7 @@ import {
   isMarvellCompany,
 } from '../lib/marvellBrand';
 
-function QuoteRow({ it, extendedMode, fxRate }) {
+function QuoteRow({ it, extendedMode, fxRate, layout }) {
   const rowMuted = it.status === 'pending';
   const rowErr = it.status === 'failed';
   const full = it.label || it.name;
@@ -91,39 +92,28 @@ function QuoteRow({ it, extendedMode, fxRate }) {
           </span>
         )}
       </td>
-      <td
-        className={`py-2 pr-2 text-right text-sm whitespace-nowrap ${
-          rowMuted ? 'text-slate-600' : ''
-        }`}
-        title={regularMarketColumnTitle(extendedMode)}
-      >
-        {rowErr ? (
-          <span className="text-amber-400/90 text-xs" title={it.error}>—</span>
-        ) : (
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
-              {regularCell?.preIdle ? (
-                <span className="text-slate-500 font-normal">—</span>
-              ) : (
-                <>
-                  {formatStockPrice(regularCell?.price, it.currency)}
-                  {regularCell?.live ? (
-                    <span className="text-emerald-400/80 font-normal text-[9px] sm:text-[10px] ml-1">
-                      live
-                    </span>
-                  ) : null}
-                  {regularCell?.lastRegularClose && !regularCell?.preIdle ? (
-                    <span className="text-slate-500 font-normal text-[9px] sm:text-[10px] ml-1 block sm:inline">
-                      last regular close
-                    </span>
-                  ) : null}
-                  {inrHint && (
-                    <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
-                  )}
-                </>
-              )}
-            </span>
-            {!regularCell?.preIdle ? (
+      {layout.showRegularMarket ? (
+        <td
+          className={`py-2 pr-2 text-right text-sm whitespace-nowrap ${
+            rowMuted ? 'text-slate-600' : ''
+          }`}
+          title={regularMarketColumnTitle(extendedMode)}
+        >
+          {rowErr ? (
+            <span className="text-amber-400/90 text-xs" title={it.error}>—</span>
+          ) : (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
+                {formatStockPrice(regularCell?.price, it.currency)}
+                {regularCell?.live ? (
+                  <span className="text-emerald-400/80 font-normal text-[9px] sm:text-[10px] ml-1">
+                    live
+                  </span>
+                ) : null}
+                {inrHint && (
+                  <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
+                )}
+              </span>
               <StockPriceChangeLines
                 quote={it}
                 pct={regularCell?.pct ?? it.regular_change_pct}
@@ -132,36 +122,38 @@ function QuoteRow({ it, extendedMode, fxRate }) {
                 fxRate={fxRate}
                 showInrChange={isMrvl}
               />
-            ) : null}
-          </div>
-        )}
-      </td>
-      <td
-        className={`py-2 text-right text-sm whitespace-nowrap ${
-          rowMuted || columnMuted ? 'text-slate-600' : ''
-        }`}
-        title={extendedColumnTitle(extendedMode)}
-      >
-        {rowErr || columnMuted ? (
-          <span className="text-slate-600 font-mono">—</span>
-        ) : (
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="font-mono tabular-nums text-violet-200 font-semibold text-xs sm:text-sm">
-              {formatStockPrice(ext?.price, it.currency)}
-              {extInrHint && (
-                <span className="text-violet-300/80 font-normal ml-1">({extInrHint})</span>
-              )}
-            </span>
-            <StockPriceChangeLines
-              pct={ext?.pct}
-              changeAbs={ext?.abs}
-              currency={it.currency}
-              fxRate={fxRate}
-              showInrChange={isMrvl}
-            />
-          </div>
-        )}
-      </td>
+            </div>
+          )}
+        </td>
+      ) : null}
+      {layout.showExtended ? (
+        <td
+          className={`py-2 text-right text-sm whitespace-nowrap ${
+            rowMuted || columnMuted ? 'text-slate-600' : ''
+          }`}
+          title={extendedColumnTitle(extendedMode)}
+        >
+          {rowErr || columnMuted ? (
+            <span className="text-slate-600 font-mono">—</span>
+          ) : (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="font-mono tabular-nums text-violet-200 font-semibold text-xs sm:text-sm">
+                {formatStockPrice(ext?.price, it.currency)}
+                {extInrHint && (
+                  <span className="text-violet-300/80 font-normal ml-1">({extInrHint})</span>
+                )}
+              </span>
+              <StockPriceChangeLines
+                pct={ext?.pct}
+                changeAbs={ext?.abs}
+                currency={it.currency}
+                fxRate={fxRate}
+                showInrChange={isMrvl}
+              />
+            </div>
+          )}
+        </td>
+      ) : null}
     </tr>
   );
 }
@@ -181,6 +173,7 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
   }
 
   const extendedMode = extendedModeProp ?? resolveUsExtendedColumnMode(items);
+  const layout = watchlistTwoPriceColumns(extendedMode);
   const columnMuted = isExtendedColumnMuted(extendedMode);
   const extLabel = extendedColumnLabel(extendedMode);
   const fxRate = usdInr?.rate != null ? Number(usdInr.rate) : null;
@@ -200,26 +193,30 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
         >
           Previous Close
         </th>
-        <th
-          className="font-semibold pb-2 text-right w-28 sm:w-36"
-          title={regularMarketColumnTitle(extendedMode)}
-        >
-          <span className="normal-case tracking-normal">Regular Market</span>
-          <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
-            {regularMarketColumnSubtitle(extendedMode)}
-          </span>
-        </th>
-        <th
-          className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
-            columnMuted ? 'text-slate-600' : ''
-          }`}
-          title={extendedColumnTitle(extendedMode)}
-        >
-          {extLabel}
-          <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
-            {extendedColumnBaselineSubtitle(extendedMode)}
-          </span>
-        </th>
+        {layout.showRegularMarket ? (
+          <th
+            className="font-semibold pb-2 text-right w-28 sm:w-36"
+            title={regularMarketColumnTitle(extendedMode)}
+          >
+            <span className="normal-case tracking-normal">Regular Market</span>
+            <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
+              {regularMarketColumnSubtitle(extendedMode)}
+            </span>
+          </th>
+        ) : null}
+        {layout.showExtended ? (
+          <th
+            className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
+              columnMuted ? 'text-slate-600' : ''
+            }`}
+            title={extendedColumnTitle(extendedMode)}
+          >
+            {extLabel}
+            <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
+              {extendedColumnBaselineSubtitle(extendedMode)}
+            </span>
+          </th>
+        ) : null}
       </tr>
     </thead>
   );
@@ -231,7 +228,13 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
           {tableHead}
           <tbody>
             {left.map((it) => (
-              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} fxRate={fxRate} />
+              <QuoteRow
+                key={it.name}
+                it={it}
+                extendedMode={extendedMode}
+                fxRate={fxRate}
+                layout={layout}
+              />
             ))}
           </tbody>
         </table>
@@ -241,7 +244,13 @@ export default function SemiconductorQuotesTable({ items, extendedMode: extended
           {tableHead}
           <tbody>
             {right.map((it) => (
-              <QuoteRow key={it.name} it={it} extendedMode={extendedMode} fxRate={fxRate} />
+              <QuoteRow
+                key={it.name}
+                it={it}
+                extendedMode={extendedMode}
+                fxRate={fxRate}
+                layout={layout}
+              />
             ))}
           </tbody>
         </table>

@@ -6,7 +6,7 @@ import {
 
 /** Watchlist helper copy (Yahoo column semantics). */
 export const WATCHLIST_YAHOO_LEGEND =
-  "Previous Close = yesterday's close · Pre-market = before open · Regular Market = live or session close · After Market = extended";
+  "Previous Close = last session's closing price · Pre-market = before the open (vs Previous Close) · Regular Market = live price only while the exchange is open · After Market = extended hours";
 
 /** Pre vs last regular session price (not vs prior close). */
 export function preChangePctVsRegular(premarketPrice, regularPrice) {
@@ -202,29 +202,15 @@ export function pickRegularMarketDisplay(it, now = new Date()) {
   const yahooPre = state === 'PRE';
   const inUsPre = clockPre || yahooPre;
 
+  if (inUsPre) {
+    // Regular session is not open — prior close lives only in the Previous Close column.
+    return { price: null, pct: null, abs: null, live: false, preIdle: true };
+  }
+
   const price = it.regular_price;
-  if (price == null) return inUsPre ? { price: null, pct: null, abs: null, live: false, preIdle: true } : null;
+  if (price == null) return null;
 
   const priceN = Number(price);
-  if (
-    inUsPre
-    && previousClose != null
-    && Number(previousClose) !== 0
-    && Math.abs(priceN - Number(previousClose)) / Number(previousClose) < 0.005
-  ) {
-    // Yahoo leaves regularMarketPrice at prior close during PRE — don't duplicate Previous Close column.
-    return { price: null, pct: null, abs: null, live: false, preIdle: true, lastRegularClose: priceN };
-  }
-
-  if (inUsPre) {
-    return {
-      price: priceN,
-      pct: it.regular_change_pct,
-      abs: deriveRegularChangeAbsFromRow(it),
-      live: false,
-      lastRegularClose: true,
-    };
-  }
 
   return {
     price: priceN,

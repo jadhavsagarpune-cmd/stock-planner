@@ -55,42 +55,41 @@ export default function YahooQuoteStrip({
           {formatStockPrice(quote.previous_close, currency)}
         </div>
       </div>
-      <div>
-        <div className={labelClass}>
-          Regular Market
-          {regularCell?.live ? (
-            <span className="text-emerald-400/90 normal-case tracking-normal ml-1">live</span>
+      {!showPre && (
+        <div>
+          <div className={labelClass}>
+            Regular Market
+            {regularCell?.live ? (
+              <span className="text-emerald-400/90 normal-case tracking-normal ml-1">live</span>
+            ) : null}
+          </div>
+          <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
+            {regularCell?.preIdle ? (
+              <span className="text-slate-500">—</span>
+            ) : (
+              <>
+                {formatStockPrice(regularCell?.price ?? quote.regular_price, currency)}
+                {regularInr && (
+                  <span className="text-violet-300/90 font-normal ml-1 text-[10px] sm:text-xs">
+                    ({regularInr})
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+          {!regularCell?.preIdle ? (
+            <StockPriceChangeLines
+              quote={quote}
+              pct={regularCell?.pct ?? quote.regular_change_pct}
+              changeAbs={regularCell?.abs ?? quote.regular_change_abs}
+              currency={currency}
+              fxRate={fxRate}
+              showInrChange={showInrChange}
+              className="!items-start mt-0.5"
+            />
           ) : null}
         </div>
-        <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
-          {regularCell?.preIdle ? (
-            <span className="text-slate-500">—</span>
-          ) : (
-            <>
-              {formatStockPrice(regularCell?.price ?? quote.regular_price, currency)}
-              {regularCell?.lastRegularClose && !regularCell?.preIdle ? (
-                <span className="text-slate-500 font-normal text-[10px] ml-1">last regular close</span>
-              ) : null}
-              {regularInr && (
-                <span className="text-violet-300/90 font-normal ml-1 text-[10px] sm:text-xs">
-                  ({regularInr})
-                </span>
-              )}
-            </>
-          )}
-        </div>
-        {!regularCell?.preIdle ? (
-          <StockPriceChangeLines
-            quote={quote}
-            pct={regularCell?.pct ?? quote.regular_change_pct}
-            changeAbs={regularCell?.abs ?? quote.regular_change_abs}
-            currency={currency}
-            fxRate={fxRate}
-            showInrChange={showInrChange}
-            className="!items-start mt-0.5"
-          />
-        ) : null}
-      </div>
+      )}
       {showAfter && ext?.price != null && (
         <div>
           <div className={labelClass}>After Market</div>

@@ -85,7 +85,7 @@ export function extendedColumnBaselineSubtitle(mode) {
 /** Subtitle under the Regular Market watchlist column header. */
 export function regularMarketColumnSubtitle(extendedMode) {
   if (extendedMode === 'regular') return 'live · vs Previous Close';
-  if (extendedMode === 'pre') return 'last regular session · opens 9:30 ET';
+  if (extendedMode === 'pre') return '— regular session closed';
   return 'session close · vs Previous Close';
 }
 
@@ -105,13 +105,21 @@ export function regularMarketColumnTitle(extendedMode) {
     return 'Regular Market live price (regularMarketPrice / current) · day change vs Previous Close';
   }
   if (extendedMode === 'pre') {
-    return 'During pre-market: last regular session close (— when same as Previous Close) · not a live regular quote';
+    return 'Pre-market: regular session is not open — prior close is only in the Previous Close column';
   }
   return 'Regular Market session close · day change vs Previous Close';
 }
 
 export function previousCloseColumnTitle() {
   return 'Previous Close (Yahoo regularMarketPreviousClose / previousClose) — prior session only';
+}
+
+/** Watchlist: only two price columns — Previous Close + (Pre | After | live Regular). */
+export function watchlistTwoPriceColumns(extendedMode) {
+  if (extendedMode === 'regular') {
+    return { showRegularMarket: true, showExtended: false };
+  }
+  return { showRegularMarket: false, showExtended: true };
 }
 
 /** Heatmap header badge + helper copy for the active session. */

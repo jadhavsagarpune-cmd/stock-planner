@@ -71,8 +71,8 @@ const gapPreRow = {
 };
 
 const gapPre = pickRegularMarketDisplay(gapPreRow, PRE_MORNING);
-if (!gapPre?.lastRegularClose || gapPre.price !== 336.31 || gapPre.preIdle) {
-  console.error('FAIL gap day pre shows last regular close', gapPre);
+if (!gapPre?.preIdle || gapPre.price != null) {
+  console.error('FAIL pre session never shows Regular Market column data', gapPre);
   process.exit(1);
 }
 
