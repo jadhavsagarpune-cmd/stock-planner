@@ -67,20 +67,17 @@ try {
     process.exit(1);
   }
 
-  if (quote.postmarket_price != null && quote.regular_price != null) {
-    const derivedPct = ((quote.postmarket_price - quote.regular_price) / quote.regular_price) * 100;
+  if (quote.postmarket_price != null && quote.previous_close != null) {
+    const derivedPct =
+      ((quote.postmarket_price - quote.previous_close) / quote.previous_close) * 100;
     if (!near(quote.postmarket_change_pct, derivedPct, 0.08)) {
-      console.error('FAIL after change not vs regular', {
+      console.error('FAIL after change not vs previous close', {
         postmarket_change_pct: quote.postmarket_change_pct,
         derivedPct,
       });
       process.exit(1);
     }
-    if (near(quote.postmarket_change_pct, -0.81, 0.15) || near(derivedPct, -0.81, 0.15)) {
-      assertions.push('after~-0.81% vs regular');
-    } else {
-      assertions.push(`after~${quote.postmarket_change_pct?.toFixed(2)}% vs regular`);
-    }
+    assertions.push(`after~${quote.postmarket_change_pct?.toFixed(2)}% vs previous close`);
   }
 
   console.log('OK ADBE assertions', assertions);
@@ -109,13 +106,9 @@ try {
     console.error('FAIL offline regular_price');
     process.exit(1);
   }
-  const derivedPct = ((333.57 - 336.31) / 336.31) * 100;
+  const derivedPct = ((333.57 - 138.47) / 138.47) * 100;
   if (!near(quote.postmarket_change_pct, derivedPct, 0.08)) {
-    console.error('FAIL offline after % vs regular', quote.postmarket_change_pct);
-    process.exit(1);
-  }
-  if (!near(quote.postmarket_change_pct, -0.81, 0.15)) {
-    console.error('FAIL offline after ~-0.81%', quote.postmarket_change_pct);
+    console.error('FAIL offline after % vs previous close', quote.postmarket_change_pct);
     process.exit(1);
   }
   console.log('OK ADBE offline fixture assertions', { postmarket_change_pct: quote.postmarket_change_pct });

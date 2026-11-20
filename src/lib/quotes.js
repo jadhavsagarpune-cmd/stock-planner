@@ -15,7 +15,7 @@ const CHART_QS = 'interval=1m&range=1d&includePrePost=true';
  * - previous_close ← regularMarketPreviousClose ?? previousClose (never chartPreviousClose when v7 present)
  * - regular_price ← regularMarketPrice (+ unstuck helper when meta lags on gap days)
  * - regular_change_* ← vs previous_close (regularMarketChange / Percent)
- * - postmarket_* ← vs regular_price (postMarketChange / Percent), Yahoo after-hours semantics
+ * - postmarket_* ← vs previous_close (display; regular session is closed)
  * - premarket_* ← vs previous_close (preMarketChange / Percent)
  */
 const QUOTE_SUMMARY_KEYS = [
@@ -308,15 +308,9 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
 
   let postmarketChangePct = null;
   let postmarketChangeAbs = null;
-  if (postmarketPrice != null && regularPrice != null) {
-    postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
-    postmarketChangeAbs = float(meta.postMarketChange);
-    if (postmarketChangePct == null) {
-      postmarketChangePct = deriveChangePct(postmarketPrice, regularPrice);
-    }
-    if (postmarketChangeAbs == null) {
-      postmarketChangeAbs = postmarketPrice - regularPrice;
-    }
+  if (postmarketPrice != null && previousClose != null) {
+    postmarketChangePct = deriveChangePct(postmarketPrice, previousClose);
+    postmarketChangeAbs = postmarketPrice - previousClose;
     postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
   }
 

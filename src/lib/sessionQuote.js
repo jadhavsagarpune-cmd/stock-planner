@@ -134,16 +134,17 @@ export function pickSessionDayChange(quote, now = new Date()) {
       ?? float(quote.current_price);
     let pct = null;
     let abs = null;
-    if (price != null && regular != null && regular !== 0) {
-      pct = ((price - regular) / regular) * 100;
-      abs = price - regular;
+    const prev = float(quote.previous_close);
+    if (price != null && prev != null && prev !== 0) {
+      pct = ((price - prev) / prev) * 100;
+      abs = price - prev;
     } else if (price != null) {
       pct = float(quote.postmarket_change_pct);
       abs = float(quote.postmarket_change_abs);
     }
-    abs = deriveExtendedChangeAbs(price, regular, pct) ?? abs;
+    abs = deriveExtendedChangeAbs(price, prev, pct) ?? abs;
     if (pct == null && abs == null) return null;
-    return { pct, abs, referenceLabel: 'After Market vs Regular Market close' };
+    return { pct, abs, referenceLabel: 'After Market vs Previous Close' };
   }
 
   if (session === 'regular') {

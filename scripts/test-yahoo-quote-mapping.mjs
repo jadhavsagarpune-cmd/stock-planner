@@ -59,16 +59,16 @@ if (Math.abs(quote.postmarket_price - 333.57) > 0.05) {
   console.error('FAIL mapped postmarket_price', quote.postmarket_price);
   process.exit(1);
 }
-const expectedAfterPct = ((333.57 - 336.31) / 336.31) * 100;
+const expectedAfterPct = ((333.57 - 138.47) / 138.47) * 100;
 if (Math.abs(quote.postmarket_change_pct - expectedAfterPct) > 0.05) {
-  console.error('FAIL post change vs regular', {
+  console.error('FAIL post change vs previous close', {
     got: quote.postmarket_change_pct,
     expected: expectedAfterPct,
   });
   process.exit(1);
 }
-if (Math.abs(quote.postmarket_change_abs - (333.57 - 336.31)) > 0.05) {
-  console.error('FAIL post abs vs regular', quote.postmarket_change_abs);
+if (Math.abs(quote.postmarket_change_abs - (333.57 - 138.47)) > 0.05) {
+  console.error('FAIL post abs vs previous close', quote.postmarket_change_abs);
   process.exit(1);
 }
 

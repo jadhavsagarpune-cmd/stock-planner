@@ -77,7 +77,7 @@ export function extendedColumnLabel(mode) {
 
 /** Subtitle under the extended-hours watchlist column header. */
 export function extendedColumnBaselineSubtitle(mode) {
-  if (mode === 'post') return 'vs Regular Market close';
+  if (mode === 'post') return 'vs Previous Close';
   if (mode === 'pre') return 'vs Previous Close';
   return '';
 }
@@ -95,7 +95,7 @@ export function extendedColumnTitle(mode) {
     return 'Pre-market / After Market hidden during US regular session (9:30–16:00 ET)';
   }
   if (mode === 'post') {
-    return 'After Market price · $/% vs Regular Market close (not vs Previous Close)';
+    return 'After Market price · $/% vs Previous Close (regular session is closed)';
   }
   return 'Pre-market price · $/% vs Previous Close';
 }
