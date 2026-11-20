@@ -109,7 +109,16 @@ if (livePrev == null || Math.abs(livePrev - 138.47) > 0.02) {
   console.error('FAIL MRVL live-shaped prior must be regularMarketPrice 138.47', { livePrev });
   process.exit(1);
 }
-const liveQuote = mapYahooMetaToQuote(MRVL_LIVE_SHAPED, 'MRVL');
+const MRVL_V7_MERGED = {
+  ...MRVL_LIVE_SHAPED,
+  regularMarketPreviousClose: 138.47,
+};
+const v7Prev = resolvePreviousClose(MRVL_V7_MERGED, 138.47);
+if (Math.abs(v7Prev - 138.47) > 0.02) {
+  console.error('FAIL v7 regularMarketPreviousClose must pin prior', v7Prev);
+  process.exit(1);
+}
+const liveQuote = mapYahooMetaToQuote(MRVL_V7_MERGED, 'MRVL');
 const livePrePct = ((132.3 - 138.47) / 138.47) * 100;
 if (Math.abs(liveQuote.premarket_change_pct - livePrePct) > 0.15) {
   console.error('FAIL MRVL pre % vs 138.47', liveQuote.premarket_change_pct, livePrePct);

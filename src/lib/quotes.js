@@ -59,16 +59,19 @@ function quoteSummaryFetchUrl(symbol) {
 async function fetchYahooQuoteSummaryRow(symbol, { signal } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
-  try {
-    const resp = await fetch(quoteSummaryFetchUrl(sym), { headers: HEADERS, signal });
-    if (!resp.ok) return null;
-    const payload = await resp.json();
-    const rows = payload?.quoteResponse?.result;
-    if (!Array.isArray(rows) || !rows.length) return null;
-    return rows[0];
-  } catch {
-    return null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const resp = await fetch(quoteSummaryFetchUrl(sym), { headers: HEADERS, signal });
+      if (!resp.ok) continue;
+      const payload = await resp.json();
+      const rows = payload?.quoteResponse?.result;
+      if (!Array.isArray(rows) || !rows.length) continue;
+      return rows[0];
+    } catch {
+      /* retry */
+    }
   }
+  return null;
 }
 
 /** Overlay v7 quote fields onto chart meta (quote wins for session prices). */
@@ -248,14 +251,15 @@ function deriveRegularChangeAbs(regularPrice, previousClose, regularChangePct, m
 export function mapYahooMetaToQuote(meta, sym, chartResult) {
   const symbol = sym || meta.symbol || '';
 
-  const provisionalPrev = resolvePreviousClose(meta, float(meta.regularMarketPrice));
+  const regMktPrevPinned = float(meta.regularMarketPreviousClose);
+  const provisionalPrev = regMktPrevPinned ?? resolvePreviousClose(meta, float(meta.regularMarketPrice));
   const regularPrice = resolveRegularMarketPrice(meta, provisionalPrev);
   let premarketPrice = float(meta.preMarketPrice);
   let regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
   if (regularChangePct == null) {
     regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
   }
-  const previousClose = resolvePreviousClose(meta, regularPrice);
+  const previousClose = regMktPrevPinned ?? resolvePreviousClose(meta, regularPrice);
   const regularFromPrev = deriveChangePct(regularPrice, previousClose);
   if (regularFromPrev != null) regularChangePct = regularFromPrev;
   let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
