@@ -7,9 +7,24 @@ import {
 } from '../lib/stockFormat';
 import StockPriceChangeLines from './StockPriceChangeLines';
 import { formatAtCloseTime, formatUsMarketTime } from '../lib/marketTimeFormat';
-import { resolveActiveSession } from '../lib/sessionQuote';
+import {
+  pickActiveSessionPrice,
+  pickSessionDayChange,
+  resolveActiveSession,
+} from '../lib/sessionQuote';
 
-function SessionColumn({ title, timeLabel, price, pct, abs, currency, fxRate, showInrChange, muted }) {
+function SessionColumn({
+  title,
+  timeLabel,
+  price,
+  pct,
+  abs,
+  currency,
+  fxRate,
+  showInrChange,
+  muted,
+  showChange = true,
+}) {
   const priceStr = price != null ? formatStockPrice(price, currency) : '—';
   const inrHint =
     showInrChange && fxRate != null && price != null ? formatMrvlInrHint(price, fxRate) : null;
@@ -25,7 +40,7 @@ function SessionColumn({ title, timeLabel, price, pct, abs, currency, fxRate, sh
           <span className="text-[10px] font-normal text-violet-300/80 block">{inrHint}</span>
         ) : null}
       </div>
-      {price != null ? (
+      {price != null && showChange ? (
         <StockPriceChangeLines
           pct={pct}
           changeAbs={abs}
@@ -34,7 +49,7 @@ function SessionColumn({ title, timeLabel, price, pct, abs, currency, fxRate, sh
           showInrChange={showInrChange}
           className="!items-start !text-[10px] sm:!text-[11px] mt-0.5"
         />
-      ) : (
+      ) : price != null && !showChange ? null : (
         <span className="text-[10px] text-slate-600 block mt-1">—</span>
       )}
     </div>
@@ -49,13 +64,48 @@ function YahooQuoteHero({
   companyName = 'Marvell Technology, Inc.',
   ticker = 'MRVL',
   className = '',
+  now = new Date(),
 }) {
-  const atClose = pickRegularMarketDisplay(quote);
-  const pre = pickExtendedQuote(quote, 'pre');
-  const post = pickExtendedQuote(quote, 'post');
-  const regularPrice = atClose?.price ?? quote.regular_price;
-  const regularPct = atClose?.pct ?? quote.regular_change_pct;
-  const regularAbs = atClose?.abs ?? quote.regular_change_abs;
+  const session = resolveActiveSession(quote, now);
+  const headlinePrice = pickActiveSessionPrice(quote, now);
+  const dayChange = pickSessionDayChange(quote, now);
+  const headlinePct = dayChange?.pct ?? null;
+  const headlineAbs = dayChange?.abs ?? null;
+  const headlineLabel =
+    session === 'pre'
+      ? 'Pre-market'
+      : session === 'post'
+        ? 'After-hours'
+        : session === 'regular'
+          ? 'Regular Market'
+          : 'At close';
+
+  let headlineTime = null;
+  if (session === 'pre') headlineTime = formatUsMarketTime(quote.pre_market_time);
+  else if (session === 'post') headlineTime = formatUsMarketTime(quote.post_market_time);
+  else if (session === 'regular') headlineTime = null;
+  else headlineTime = formatAtCloseTime(quote.regular_market_time);
+
+  let secondary = null;
+  if (session === 'pre') {
+    secondary = {
+      title: 'At close',
+      timeLabel: formatAtCloseTime(quote.regular_market_time),
+      price: quote.previous_close,
+      showChange: false,
+    };
+  } else if (session === 'post') {
+    const atClose = pickRegularMarketDisplay(quote, now);
+    secondary = {
+      title: 'At close',
+      timeLabel: formatAtCloseTime(quote.regular_market_time),
+      price: atClose?.preIdle ? quote.previous_close : (atClose?.price ?? quote.regular_price),
+      pct: atClose?.preIdle ? null : (atClose?.pct ?? quote.regular_change_pct),
+      abs: atClose?.preIdle ? null : (atClose?.abs ?? quote.regular_change_abs),
+      showChange: !atClose?.preIdle,
+    };
+  }
+
   const dayHigh = quote.day_high;
   const dayLow = quote.day_low;
   const open = quote.regular_market_open;
@@ -83,56 +133,51 @@ function YahooQuoteHero({
   return (
     <div className={`space-y-3 ${className}`}>
       <TitleRow companyName={companyName} ticker={ticker} />
-      <div>
-        <div className="text-[11px] sm:text-xs text-slate-400 font-medium">At close</div>
-        <div
-          className={`font-mono text-3xl sm:text-4xl font-semibold tabular-nums leading-none mt-0.5 ${changeColorClass(regularPct)}`}
-        >
-          {formatStockPrice(regularPrice, currency)}
+      <div
+        className={
+          secondary
+            ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8'
+            : ''
+        }
+      >
+        <div className="min-w-0">
+          <div className="text-[11px] sm:text-xs text-slate-400 font-medium">{headlineLabel}</div>
+          {headlineTime ? (
+            <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums">{headlineTime}</div>
+          ) : null}
+          <div
+            className={`font-mono text-3xl sm:text-4xl font-semibold tabular-nums leading-none mt-0.5 ${changeColorClass(headlinePct)}`}
+          >
+            {formatStockPrice(headlinePrice, currency)}
+          </div>
+          {headlinePct != null || headlineAbs != null ? (
+            <div className="mt-1.5">
+              <StockPriceChangeLines
+                quote={quote}
+                pct={headlinePct}
+                changeAbs={headlineAbs}
+                currency={currency}
+                fxRate={fxRate}
+                showInrChange={showInrChange}
+                className="!items-start !text-xs sm:!text-sm"
+              />
+            </div>
+          ) : null}
         </div>
-        <div className="mt-1.5">
-          <StockPriceChangeLines
-            quote={quote}
-            pct={regularPct}
-            changeAbs={regularAbs}
+        {secondary ? (
+          <SessionColumn
+            title={secondary.title}
+            timeLabel={secondary.timeLabel}
+            price={secondary.price}
+            pct={secondary.pct}
+            abs={secondary.abs}
             currency={currency}
             fxRate={fxRate}
             showInrChange={showInrChange}
-            className="!items-start !text-xs sm:!text-sm"
+            showChange={secondary.showChange}
+            muted
           />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 pt-1 border-t border-slate-700/60">
-        <SessionColumn
-          title="Pre-market"
-          timeLabel={formatUsMarketTime(quote.pre_market_time)}
-          price={pre?.price ?? quote.premarket_price}
-          pct={pre?.pct ?? quote.premarket_change_pct}
-          abs={pre?.abs ?? quote.premarket_change_abs}
-          currency={currency}
-          fxRate={fxRate}
-          showInrChange={showInrChange}
-        />
-        <SessionColumn
-          title="At close"
-          timeLabel={formatAtCloseTime(quote.regular_market_time)}
-          price={regularPrice}
-          pct={regularPct}
-          abs={regularAbs}
-          currency={currency}
-          fxRate={fxRate}
-          showInrChange={showInrChange}
-        />
-        <SessionColumn
-          title="After-hours"
-          timeLabel={formatUsMarketTime(quote.post_market_time)}
-          price={post?.price ?? quote.postmarket_price}
-          pct={post?.pct ?? quote.postmarket_change_pct}
-          abs={post?.abs ?? quote.postmarket_change_abs}
-          currency={currency}
-          fxRate={fxRate}
-          showInrChange={showInrChange}
-        />
+        ) : null}
       </div>
       {footerParts.length > 0 && (
         <div className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed flex flex-wrap gap-x-3 gap-y-1">
@@ -184,6 +229,7 @@ export default function YahooQuoteStrip({
         companyName={companyName ?? 'Marvell Technology, Inc.'}
         ticker={ticker}
         className={className}
+        now={now}
       />
     );
   }
