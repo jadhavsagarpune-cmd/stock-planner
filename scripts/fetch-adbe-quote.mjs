@@ -98,8 +98,8 @@ try {
     postMarketChangePercent: -0.815,
   };
   const quote = mapYahooMetaToQuote(fixture, 'ADBE');
-  if (!near(quote.previous_close, 138.47, 0.05)) {
-    console.error('FAIL offline previous_close');
+  if (!near(quote.previous_close, 336.31, 0.05)) {
+    console.error('FAIL offline previous_close (last at close)');
     process.exit(1);
   }
   if (!near(quote.regular_price, 336.31, 0.1)) {
