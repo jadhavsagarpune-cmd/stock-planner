@@ -52,4 +52,16 @@ if (pickCurrentHeatmapPrice(row) !== 105) {
   process.exit(1);
 }
 
+const pctOnly = {
+  name: 'NVDA',
+  status: 'done',
+  regular_change_pct: 1.5,
+  market_state: 'REGULAR',
+};
+const prevFromPct = pickHeatmapChangePctForBaseline(pctOnly, 'previous_close', null);
+if (prevFromPct == null || Math.abs(prevFromPct - 1.5) > 0.01) {
+  console.error('FAIL PREV falls back to regular_change_pct', prevFromPct);
+  process.exit(1);
+}
+
 console.log('OK heatmap baselines');

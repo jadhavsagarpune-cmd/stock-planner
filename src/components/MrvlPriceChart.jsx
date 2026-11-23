@@ -21,14 +21,9 @@ import {
   pctFromRangeStart,
   svgPointToClient,
 } from '../lib/mrvlChartGeometry';
-import StockPriceChangeLines from './StockPriceChangeLines';
 import MarketStatusChip from './MarketStatusChip';
-import {
-  pickActiveSessionPrice,
-  pickSessionDayChange,
-  resolveActiveSession,
-  sessionHeadlineLabel,
-} from '../lib/sessionQuote';
+import YahooQuoteStrip from './YahooQuoteStrip';
+import { pickActiveSessionPrice, sessionHeadlineLabel } from '../lib/sessionQuote';
 
 const CHART_W = 640;
 const CHART_H = 160;
@@ -218,25 +213,18 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
     return Math.min(92, Math.max(8, (hoverX / CHART_W) * 100));
   }, [hoverX, hoverY]);
 
-  const livePrice = mrvl ? pickActiveSessionPrice(mrvl) : null;
-  const sessionDay = mrvl ? pickSessionDayChange(mrvl) : null;
-  const displayPrice = livePrice ?? mrvl?.regular_price ?? chartLast;
+  const hasQuote = mrvl?.regular_price != null || mrvl?.previous_close != null;
   const currency = mrvl?.currency ?? 'USD';
-  const headlineLabel = mrvl ? sessionHeadlineLabel(mrvl) : 'Price';
   const rangeChipLabel = rangeSpec.label;
   const basisLine = chartPriceBasisLine(mrvl);
-  const headlineTone =
-    sessionDay?.pct != null ? changeColorClass(sessionDay.pct) : 'text-amber-50';
-  const activeSession = mrvl ? resolveActiveSession(mrvl) : 'closed';
-  const showExtColumn =
-    !extMuted && mrvlExt?.price != null && activeSession === 'regular';
 
   return (
     <section className={`mb-4 rounded-xl border p-3 sm:p-4 ${MARVELL_HERO_PANEL}`}>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] uppercase tracking-wide text-amber-300/90 font-semibold min-w-0">
           <MarvellMarker size={14} />
-          <span className="truncate">Marvell Technology</span>
+          <span className="truncate hidden sm:inline">Marvell Technology, Inc.</span>
+          <span className="truncate sm:hidden">MRVL</span>
           <span className={`${MARVELL_TICKER_CHIP} shrink-0`}>MRVL</span>
           {mrvl ? <MarketStatusChip quote={mrvl} className="shrink-0" /> : null}
         </div>
@@ -269,62 +257,17 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
 
       {mrvlErr ? (
         <p className="text-sm text-amber-300 mb-2">{mrvlErr}</p>
-      ) : displayPrice != null ? (
+      ) : hasQuote ? (
         <div className="space-y-2 mb-3">
-          <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 sm:gap-4">
-            <div className="min-w-0">
-              <span className="text-[10px] sm:text-xs text-amber-200/70 font-medium block mb-0.5">
-                {headlineLabel}
-              </span>
-              <span
-                className={`font-mono text-2xl sm:text-3xl font-semibold tabular-nums block leading-tight ${headlineTone}`}
-              >
-                {formatStockPrice(displayPrice, currency)}
-              </span>
-              {mrvlInrHint ? (
-                <span className="text-[11px] sm:text-xs font-normal text-violet-300/90 block mt-0.5 tabular-nums">
-                  {mrvlInrHint}
-                </span>
-              ) : null}
-              {sessionDay ? (
-                <div className="mt-1.5 min-w-0">
-                  <StockPriceChangeLines
-                    quote={mrvl}
-                    pct={sessionDay.pct}
-                    changeAbs={sessionDay.abs}
-                    currency={currency}
-                    fxRate={fxRate}
-                    showInrChange
-                    className="!items-start !text-[11px] sm:!text-xs"
-                  />
-                  <span className="text-[10px] text-slate-500 block mt-0.5">{sessionDay.referenceLabel}</span>
-                </div>
-              ) : null}
-            </div>
-            {showExtColumn && (
-              <div className="min-w-0 min-[420px]:border-l min-[420px]:border-slate-700/50 min-[420px]:pl-3 sm:pl-4">
-                <span className="text-[10px] sm:text-xs text-slate-500 block mb-0.5">{extLabel}</span>
-                <span className="font-mono text-lg sm:text-xl text-violet-200 font-semibold tabular-nums block">
-                  {formatStockPrice(mrvlExt.price, currency)}
-                </span>
-                {mrvlExtInrHint ? (
-                  <span className="text-[11px] sm:text-xs font-normal text-violet-300/80 block mt-0.5 tabular-nums">
-                    {mrvlExtInrHint}
-                  </span>
-                ) : null}
-                <div className="mt-1.5">
-                  <StockPriceChangeLines
-                    pct={mrvlExt.pct}
-                    changeAbs={mrvlExt.abs}
-                    currency={currency}
-                    fxRate={fxRate}
-                    showInrChange
-                    className="!items-start !text-[11px] sm:!text-xs"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+          <YahooQuoteStrip
+            layout="hero"
+            quote={mrvl}
+            currency={currency}
+            fxRate={fxRate}
+            showInrChange
+            companyName="Marvell Technology, Inc."
+            ticker="MRVL"
+          />
           {periodPct != null && chartBars.length > 1 && (
             <p className="text-[11px] sm:text-xs tabular-nums leading-snug">
               <span className="text-slate-500">{rangeChipLabel} range · vs range open</span>{' '}

@@ -4,7 +4,7 @@ import {
   pickHeatmapChangePct,
   pickHeatmapPrice,
 } from './stockFormat.js';
-import { resolveUsExtendedColumnMode } from './stockMarketSession.js';
+import { normalizeMarketState, resolveUsExtendedColumnMode } from './stockMarketSession.js';
 
 export const HEATMAP_BASELINE_STORAGE_KEY = 'stock-planner.heatmapBaseline';
 
@@ -93,6 +93,18 @@ export function heatmapBaselineMeta(baselineId) {
   };
 }
 
+function rowSessionMode(it) {
+  const state = normalizeMarketState(it?.market_state);
+  if (state === 'REGULAR') return 'regular';
+  return resolveUsExtendedColumnMode(it?.market_state);
+}
+
+function floatQuote(v) {
+  if (v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 function deriveChangePct(price, basePrice) {
   if (price == null || basePrice == null || basePrice === 0) return null;
   const p = Number(price);
@@ -146,18 +158,21 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
   const sym = String(it.name || '').trim().toUpperCase();
 
   if (baselineId === 'pre') {
-    const sessionMode = resolveUsExtendedColumnMode(it.market_state);
-    return pickHeatmapChangePct(it, sessionMode);
+    return pickHeatmapChangePct(it, rowSessionMode(it));
   }
 
   if (baselineId === 'previous_close') {
-    const price = pickCurrentHeatmapPrice(it);
-    const base = it.previous_close ?? it.regular_price;
+    const prev = floatQuote(it.previous_close);
+    const px = pickCurrentHeatmapPrice(it) ?? floatQuote(it.regular_price);
+    if (prev != null && prev > 0 && px != null) {
+      const d = deriveChangePct(px, prev);
+      if (d != null && Number.isFinite(d)) return d;
+    }
     if (sym.endsWith('.KS')) {
       const n = Number(it.regular_change_pct);
-      if (n != null && !Number.isNaN(n)) return n;
+      if (Number.isFinite(n)) return n;
     }
-    return deriveChangePct(price ?? it.regular_price, base);
+    return pickHeatmapChangePct(it, rowSessionMode(it));
   }
 
   const current = pickCurrentHeatmapPrice(it);
@@ -178,8 +193,7 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
 export function pickHeatmapPriceForBaseline(it, baselineId, daily = null) {
   if (!it || it.status !== 'done') return null;
   if (baselineId === 'pre') {
-    const sessionMode = resolveUsExtendedColumnMode(it.market_state);
-    return pickHeatmapPrice(it, sessionMode) ?? pickCurrentHeatmapPrice(it);
+    return pickHeatmapPrice(it, rowSessionMode(it)) ?? pickCurrentHeatmapPrice(it);
   }
   if (baselineId === 'previous_close') {
     return pickCurrentHeatmapPrice(it) ?? it.regular_price;

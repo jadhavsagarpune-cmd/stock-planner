@@ -37,6 +37,12 @@ const QUOTE_SUMMARY_KEYS = [
   'preMarketChangePercent',
   'regularMarketTime',
   'postMarketTime',
+  'preMarketTime',
+  'regularMarketOpen',
+  'regularMarketDayHigh',
+  'regularMarketDayLow',
+  'fiftyTwoWeekHigh',
+  'fiftyTwoWeekLow',
 ];
 
 /** Production (Vercel): same-origin proxy avoids browser CORS blocks on Yahoo. */
@@ -377,6 +383,14 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     postmarket_change_pct: postmarketChangePct,
     postmarket_change_abs: postmarketChangeAbs,
     fullday_price: fulldayPrice,
+    regular_market_open: float(meta.regularMarketOpen),
+    day_high: float(meta.regularMarketDayHigh),
+    day_low: float(meta.regularMarketDayLow),
+    fifty_two_week_high: float(meta.fiftyTwoWeekHigh),
+    fifty_two_week_low: float(meta.fiftyTwoWeekLow),
+    regular_market_time: float(meta.regularMarketTime),
+    pre_market_time: float(meta.preMarketTime),
+    post_market_time: float(meta.postMarketTime),
     source: 'yahoo_finance',
     chart_result: chartResult ?? null,
   };
