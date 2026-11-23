@@ -1,4 +1,4 @@
-import { closedExtendedModeByClock } from './stockMarketSession.js';
+import { closedExtendedModeByClock, isUsRegularSessionByClock } from './stockMarketSession.js';
 
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
 const YAHOO_QUOTE_V7 = 'https://query1.finance.yahoo.com/v7/finance/quote';
@@ -198,6 +198,20 @@ function resolvePreviousClose(meta, regularPrice) {
   return previousClose;
 }
 
+/**
+ * Watchlist/footer “Previous Close” = last completed regular session (at close)
+ * during pre/post/closed; during live US regular, prior trading day close.
+ */
+export function resolveDisplayPreviousClose(priorSessionClose, regularPrice, marketState) {
+  const state = String(marketState || '').trim().toUpperCase();
+  const clockRegular = isUsRegularSessionByClock(new Date());
+  if (state === 'REGULAR' && clockRegular && priorSessionClose != null) {
+    return priorSessionClose;
+  }
+  if (regularPrice != null) return regularPrice;
+  return priorSessionClose;
+}
+
 /** Chart meta occasionally leaves regularMarketPrice at prior close while change fields moved. */
 function resolveRegularMarketPrice(meta, previousClose) {
   let regularPrice = float(meta.regularMarketPrice);
@@ -265,9 +279,14 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
   if (regularChangePct == null) {
     regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
   }
-  const previousClose = regMktPrevPinned ?? resolvePreviousClose(meta, regularPrice);
-  const extendedBase = regularPrice ?? previousClose;
-  const regularFromPrev = deriveChangePct(regularPrice, previousClose);
+  const priorSessionClose = regMktPrevPinned ?? resolvePreviousClose(meta, regularPrice);
+  const displayPreviousClose = resolveDisplayPreviousClose(
+    priorSessionClose,
+    regularPrice,
+    String(meta.marketState || ''),
+  );
+  const extendedBase = regularPrice ?? priorSessionClose;
+  const regularFromPrev = deriveChangePct(regularPrice, priorSessionClose);
   if (regularFromPrev != null) regularChangePct = regularFromPrev;
   let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
   if (premarketChangePct == null && premarketPrice != null && extendedBase != null) {
@@ -362,7 +381,7 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
 
   const regularChangeAbs = deriveRegularChangeAbs(
     regularPrice,
-    previousClose,
+    priorSessionClose,
     regularChangePct,
     meta.regularMarketChange,
   );
@@ -372,7 +391,7 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     currency: meta.currency || (String(symbol).endsWith('.KS') ? 'KRW' : 'USD'),
     market_state: meta.marketState || '',
     exchange: meta.exchangeName || meta.fullExchangeName || '',
-    previous_close: previousClose,
+    previous_close: displayPreviousClose,
     regular_price: regularPrice,
     regular_change_abs: regularChangeAbs,
     regular_change_pct: regularChangePct,
