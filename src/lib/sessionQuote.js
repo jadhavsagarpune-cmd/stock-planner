@@ -112,18 +112,19 @@ export function pickSessionDayChange(quote, now = new Date()) {
 
   if (session === 'pre') {
     const price = float(quote.premarket_price) ?? extendedCurrentPrice(quote) ?? float(quote.current_price);
+    const atClose = float(quote.regular_price) ?? previousClose;
     let pct = null;
     let abs = null;
-    if (price != null && previousClose != null && previousClose !== 0) {
-      pct = ((price - previousClose) / previousClose) * 100;
-      abs = price - previousClose;
+    if (price != null && atClose != null && atClose !== 0) {
+      pct = ((price - atClose) / atClose) * 100;
+      abs = price - atClose;
     } else if (price != null) {
       pct = float(quote.premarket_change_pct);
       abs = float(quote.premarket_change_abs);
     }
-    abs = deriveExtendedChangeAbs(price, previousClose, pct) ?? abs;
+    abs = deriveExtendedChangeAbs(price, atClose, pct) ?? abs;
     if (pct == null && abs == null) return null;
-    return { pct, abs, referenceLabel: 'Pre-market vs prior close' };
+    return { pct, abs, referenceLabel: 'Pre-market vs at close' };
   }
 
   if (session === 'post') {
@@ -134,17 +135,17 @@ export function pickSessionDayChange(quote, now = new Date()) {
       ?? float(quote.current_price);
     let pct = null;
     let abs = null;
-    const prev = float(quote.previous_close);
-    if (price != null && prev != null && prev !== 0) {
-      pct = ((price - prev) / prev) * 100;
-      abs = price - prev;
+    const atClose = float(quote.regular_price) ?? float(quote.previous_close);
+    if (price != null && atClose != null && atClose !== 0) {
+      pct = ((price - atClose) / atClose) * 100;
+      abs = price - atClose;
     } else if (price != null) {
       pct = float(quote.postmarket_change_pct);
       abs = float(quote.postmarket_change_abs);
     }
-    abs = deriveExtendedChangeAbs(price, prev, pct) ?? abs;
+    abs = deriveExtendedChangeAbs(price, atClose, pct) ?? abs;
     if (pct == null && abs == null) return null;
-    return { pct, abs, referenceLabel: 'After Market vs Previous Close' };
+    return { pct, abs, referenceLabel: 'After-hours vs at close' };
   }
 
   if (session === 'regular') {

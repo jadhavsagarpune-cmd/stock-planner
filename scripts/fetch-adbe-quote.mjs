@@ -106,9 +106,9 @@ try {
     console.error('FAIL offline regular_price');
     process.exit(1);
   }
-  const derivedPct = ((333.57 - 138.47) / 138.47) * 100;
+  const derivedPct = ((333.57 - 336.31) / 336.31) * 100;
   if (!near(quote.postmarket_change_pct, derivedPct, 0.08)) {
-    console.error('FAIL offline after % vs previous close', quote.postmarket_change_pct);
+    console.error('FAIL offline after % vs at close', quote.postmarket_change_pct);
     process.exit(1);
   }
   console.log('OK ADBE offline fixture assertions', { postmarket_change_pct: quote.postmarket_change_pct });

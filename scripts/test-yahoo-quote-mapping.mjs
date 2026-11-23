@@ -59,16 +59,16 @@ if (Math.abs(quote.postmarket_price - 333.57) > 0.05) {
   console.error('FAIL mapped postmarket_price', quote.postmarket_price);
   process.exit(1);
 }
-const expectedAfterPct = ((333.57 - 138.47) / 138.47) * 100;
+const expectedAfterPct = ((333.57 - 336.31) / 336.31) * 100;
 if (Math.abs(quote.postmarket_change_pct - expectedAfterPct) > 0.05) {
-  console.error('FAIL post change vs previous close', {
+  console.error('FAIL post change vs at close', {
     got: quote.postmarket_change_pct,
     expected: expectedAfterPct,
   });
   process.exit(1);
 }
-if (Math.abs(quote.postmarket_change_abs - (333.57 - 138.47)) > 0.05) {
-  console.error('FAIL post abs vs previous close', quote.postmarket_change_abs);
+if (Math.abs(quote.postmarket_change_abs - (333.57 - 336.31)) > 0.05) {
+  console.error('FAIL post abs vs at close', quote.postmarket_change_abs);
   process.exit(1);
 }
 
@@ -136,6 +136,30 @@ if (Math.abs(mrvlQuote.premarket_change_pct - expectedMrvlPrePct) > 0.05) {
 }
 if (Math.abs(mrvlQuote.premarket_change_abs - (132.63 - 138.47)) > 0.02) {
   console.error('FAIL MRVL premarket_change_abs', mrvlQuote.premarket_change_abs);
+  process.exit(1);
+}
+
+/** Gap-down day: pre % vs last at close (122.28), not prior session close 138.47. */
+const MRVL_GAP_PRE = {
+  symbol: 'MRVL',
+  marketState: 'PRE',
+  regularMarketPrice: 122.28,
+  regularMarketPreviousClose: 138.47,
+  regularMarketChange: -16.19,
+  regularMarketChangePercent: -11.69,
+  preMarketPrice: 130,
+};
+const gapQuote = mapYahooMetaToQuote(MRVL_GAP_PRE, 'MRVL');
+const expectedGapPre = ((130 - 122.28) / 122.28) * 100;
+if (Math.abs(gapQuote.premarket_change_pct - expectedGapPre) > 0.05) {
+  console.error('FAIL MRVL gap pre % vs at close', {
+    got: gapQuote.premarket_change_pct,
+    expected: expectedGapPre,
+  });
+  process.exit(1);
+}
+if (Math.abs(gapQuote.regular_change_pct - -11.69) > 0.05) {
+  console.error('FAIL MRVL gap regular day %', gapQuote.regular_change_pct);
   process.exit(1);
 }
 

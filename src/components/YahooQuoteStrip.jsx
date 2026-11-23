@@ -91,8 +91,10 @@ function YahooQuoteHero({
     secondary = {
       title: 'At close',
       timeLabel: formatAtCloseTime(quote.regular_market_time),
-      price: quote.previous_close,
-      showChange: false,
+      price: quote.regular_price,
+      pct: quote.regular_change_pct,
+      abs: quote.regular_change_abs,
+      showChange: true,
     };
   } else if (session === 'post') {
     const atClose = pickRegularMarketDisplay(quote, now);

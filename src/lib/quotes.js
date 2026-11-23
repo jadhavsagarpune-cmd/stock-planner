@@ -15,8 +15,8 @@ const CHART_QS = 'interval=1m&range=1d&includePrePost=true';
  * - previous_close ← regularMarketPreviousClose ?? previousClose (never chartPreviousClose when v7 present)
  * - regular_price ← regularMarketPrice (+ unstuck helper when meta lags on gap days)
  * - regular_change_* ← vs previous_close (regularMarketChange / Percent)
- * - postmarket_* ← vs previous_close (display; regular session is closed)
- * - premarket_* ← vs previous_close (preMarketChange / Percent)
+ * - postmarket_* / premarket_* ← vs last at close (regularMarketPrice), not prior session close
+ * - previous_close ← regularMarketPreviousClose (regular day % only)
  */
 const QUOTE_SUMMARY_KEYS = [
   'symbol',
@@ -266,15 +266,16 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
   }
   const previousClose = regMktPrevPinned ?? resolvePreviousClose(meta, regularPrice);
+  const extendedBase = regularPrice ?? previousClose;
   const regularFromPrev = deriveChangePct(regularPrice, previousClose);
   if (regularFromPrev != null) regularChangePct = regularFromPrev;
   let premarketChangePct = yahooChangePct(float(meta.preMarketChangePercent));
-  if (premarketChangePct == null && premarketPrice != null && previousClose != null) {
-    premarketChangePct = deriveChangePct(premarketPrice, previousClose);
+  if (premarketChangePct == null && premarketPrice != null && extendedBase != null) {
+    premarketChangePct = deriveChangePct(premarketPrice, extendedBase);
   }
   let premarketChangeAbs = float(meta.preMarketChange);
-  if (premarketChangeAbs == null && premarketPrice != null && previousClose != null) {
-    premarketChangeAbs = premarketPrice - previousClose;
+  if (premarketChangeAbs == null && premarketPrice != null && extendedBase != null) {
+    premarketChangeAbs = premarketPrice - extendedBase;
   }
   premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
 
@@ -314,11 +315,11 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     && currentPrice !== regularPrice
   ) {
     premarketPrice = currentPrice;
-    if (premarketChangePct == null && previousClose != null) {
-      premarketChangePct = deriveChangePct(premarketPrice, previousClose);
+    if (premarketChangePct == null && extendedBase != null) {
+      premarketChangePct = deriveChangePct(premarketPrice, extendedBase);
     }
-    if (premarketChangeAbs == null && previousClose != null) {
-      premarketChangeAbs = premarketPrice - previousClose;
+    if (premarketChangeAbs == null && extendedBase != null) {
+      premarketChangeAbs = premarketPrice - extendedBase;
     }
     premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
   }
@@ -338,9 +339,9 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     if (premarketPrice == null && (preSession || clockPre)) premarketPrice = fulldayPrice;
   }
 
-  if ((preSession || clockPre) && premarketPrice != null && previousClose != null) {
-    premarketChangePct = deriveChangePct(premarketPrice, previousClose);
-    premarketChangeAbs = premarketPrice - previousClose;
+  if ((preSession || clockPre) && premarketPrice != null && extendedBase != null) {
+    premarketChangePct = deriveChangePct(premarketPrice, extendedBase);
+    premarketChangeAbs = premarketPrice - extendedBase;
     premarketChangeAbs = alignChangeAbsWithPct(premarketChangeAbs, premarketChangePct);
   }
 
@@ -353,9 +354,9 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
 
   let postmarketChangePct = null;
   let postmarketChangeAbs = null;
-  if (postmarketPrice != null && previousClose != null) {
-    postmarketChangePct = deriveChangePct(postmarketPrice, previousClose);
-    postmarketChangeAbs = postmarketPrice - previousClose;
+  if (postmarketPrice != null && extendedBase != null) {
+    postmarketChangePct = deriveChangePct(postmarketPrice, extendedBase);
+    postmarketChangeAbs = postmarketPrice - extendedBase;
     postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
   }
 

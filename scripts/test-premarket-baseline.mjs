@@ -24,24 +24,24 @@ const adbeLike = {
 };
 
 const pre = pickExtendedQuote(adbeLike, 'pre');
-const expectedPrePct = ((AFTER - PRIOR) / PRIOR) * 100;
+const expectedPrePct = ((AFTER - REGULAR) / REGULAR) * 100;
 if (!pre || Math.abs(pre.pct - expectedPrePct) > 0.02) {
   console.error('FAIL pre vs prior close', { pre, expectedPrePct });
   process.exit(1);
 }
-if (pre.abs == null || Math.abs(pre.abs - (AFTER - PRIOR)) > 0.02) {
-  console.error('FAIL pre abs vs prior close', pre);
+if (pre.abs == null || Math.abs(pre.abs - (AFTER - REGULAR)) > 0.02) {
+  console.error('FAIL pre abs vs at close', pre);
   process.exit(1);
 }
 
 const post = pickExtendedQuote(adbeLike, 'post');
-const expectedPostPct = ((AFTER - PRIOR) / PRIOR) * 100;
+const expectedPostPct = ((AFTER - REGULAR) / REGULAR) * 100;
 if (!post || Math.abs(post.pct - expectedPostPct) > 0.02) {
   console.error('FAIL post vs previous close', { post, expectedPostPct });
   process.exit(1);
 }
-if (post.abs == null || Math.abs(post.abs - (AFTER - PRIOR)) > 0.02) {
-  console.error('FAIL post abs vs previous close', post);
+if (post.abs == null || Math.abs(post.abs - (AFTER - REGULAR)) > 0.02) {
+  console.error('FAIL post abs vs at close', post);
   process.exit(1);
 }
 
@@ -52,7 +52,7 @@ const postQuote = {
   regular_price: REGULAR,
   postmarket_price: AFTER,
   postmarket_change_pct: expectedPostPct,
-  postmarket_change_abs: AFTER - PRIOR,
+  postmarket_change_abs: AFTER - REGULAR,
   current_price: AFTER,
 };
 const postDay = pickSessionDayChange(postQuote, POST_EVENING);
@@ -60,7 +60,7 @@ if (!postDay || Math.abs(postDay.pct - expectedPostPct) > 0.02) {
   console.error('FAIL pickSessionDayChange POST derive', postDay);
   process.exit(1);
 }
-if (postDay.referenceLabel !== 'After Market vs Previous Close') {
+if (postDay.referenceLabel !== 'After-hours vs at close') {
   console.error('FAIL POST referenceLabel', postDay.referenceLabel);
   process.exit(1);
 }

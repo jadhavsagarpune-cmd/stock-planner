@@ -57,7 +57,7 @@ if (day.pct === preUpQuote.regular_change_pct) {
   console.error('FAIL pickSessionDayChange must not equal regular_change_pct in PRE');
   process.exit(1);
 }
-if (day.referenceLabel !== 'Pre-market vs prior close') {
+if (day.referenceLabel !== 'Pre-market vs at close') {
   console.error('FAIL pickSessionDayChange PRE referenceLabel', day.referenceLabel);
   process.exit(1);
 }
@@ -112,13 +112,13 @@ if (pickActiveSessionPrice(postQuote, POST_EVENING) !== 80.5) {
   console.error('FAIL pickActiveSessionPrice POST');
   process.exit(1);
 }
-const expectedPostPct = ((80.5 - 78) / 78) * 100;
+const expectedPostPct = ((80.5 - 79) / 79) * 100;
 const postDay = pickSessionDayChange(postQuote, POST_EVENING);
 if (!postDay || Math.abs(postDay.pct - expectedPostPct) > 0.02) {
-  console.error('FAIL pickSessionDayChange POST vs previous close', postDay, expectedPostPct);
+  console.error('FAIL pickSessionDayChange POST vs at close', postDay, expectedPostPct);
   process.exit(1);
 }
-if (postDay.referenceLabel !== 'After Market vs Previous Close') {
+if (postDay.referenceLabel !== 'After-hours vs at close') {
   console.error('FAIL pickSessionDayChange POST referenceLabel', postDay.referenceLabel);
   process.exit(1);
 }

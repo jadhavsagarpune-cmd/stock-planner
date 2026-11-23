@@ -124,6 +124,19 @@ function derivePctFromBase(price, base) {
   return ((p - b) / b) * 100;
 }
 
+/** Pre/post % baseline: last regular session close (Yahoo “At close”), not prior trading day. */
+function pickExtendedBaseline(it) {
+  const regular = it?.regular_price;
+  if (regular != null) {
+    const r = Number(regular);
+    if (Number.isFinite(r) && r > 0) return r;
+  }
+  const prev = it?.previous_close;
+  if (prev == null) return null;
+  const p = Number(prev);
+  return Number.isFinite(p) && p > 0 ? p : null;
+}
+
 /** Extended-hours cell for watchlist row (pre or after session). */
 export function pickExtendedQuote(it, mode) {
   if (!it || mode === 'regular') return null;
@@ -134,17 +147,17 @@ export function pickExtendedQuote(it, mode) {
       ?? it.fullday_price
       ?? (isYahooPostMarketState(it.market_state) || !isYahooPreMarketState(it.market_state) ? liveExt : null);
     if (price == null) return null;
-    const prev = it.previous_close;
+    const base = pickExtendedBaseline(it);
     let pct = null;
     let abs = null;
-    if (prev != null && Number(prev) !== 0) {
-      pct = derivePctFromBase(price, prev);
-      abs = deriveExtendedChangeAbs(price, prev, pct);
+    if (base != null) {
+      pct = derivePctFromBase(price, base);
+      abs = deriveExtendedChangeAbs(price, base, pct);
     } else {
       pct = it.postmarket_change_pct;
       abs = it.postmarket_change_abs;
-      if (abs == null && pct != null && prev != null) {
-        abs = deriveExtendedChangeAbs(price, prev, pct);
+      if (abs == null && pct != null && it.previous_close != null) {
+        abs = deriveExtendedChangeAbs(price, it.previous_close, pct);
       }
     }
     return { price, pct, abs };
@@ -153,17 +166,17 @@ export function pickExtendedQuote(it, mode) {
     it.premarket_price
     ?? (isYahooPreMarketState(it.market_state) ? currentExtendedPrice(it) : null);
   if (price == null) return null;
-  const prev = it.previous_close;
+  const base = pickExtendedBaseline(it);
   let pct = null;
   let abs = null;
-  if (prev != null && Number(prev) !== 0) {
-    pct = derivePctFromBase(price, prev);
-    abs = deriveExtendedChangeAbs(price, prev, pct);
+  if (base != null) {
+    pct = derivePctFromBase(price, base);
+    abs = deriveExtendedChangeAbs(price, base, pct);
   } else {
     pct = it.premarket_change_pct;
     abs = it.premarket_change_abs;
-    if (abs == null && pct != null && prev != null) {
-      abs = deriveExtendedChangeAbs(price, prev, pct);
+    if (abs == null && pct != null && it.previous_close != null) {
+      abs = deriveExtendedChangeAbs(price, it.previous_close, pct);
     }
   }
   return { price, pct, abs };
