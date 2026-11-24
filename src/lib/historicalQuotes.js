@@ -15,6 +15,14 @@ const DEFAULT_INTERVAL = '1d';
 
 /** Google Finance–style range chips for MRVL chart (Yahoo chart v8 range/interval). */
 export const MRVL_CHART_RANGES = [
+  {
+    id: 'LIVE',
+    label: 'LIVE',
+    range: '1d',
+    interval: '5m',
+    /** Selecting this chip also sets the global quote baseline to regular session live. */
+    syncBaselineId: 'live',
+  },
   { id: '1D', label: '1D', range: '1d', interval: '5m' },
   { id: '5D', label: '5D', range: '5d', interval: '15m' },
   { id: '7D', label: '7D', range: '7d', interval: '30m' },
@@ -26,7 +34,15 @@ export const MRVL_CHART_RANGES = [
   { id: '5Y', label: '5Y', range: '5y', interval: '1wk' },
 ];
 
-export const DEFAULT_MRVL_CHART_RANGE_ID = '1D';
+export const DEFAULT_MRVL_CHART_RANGE_ID = 'LIVE';
+
+/** Primary chart chip row (scroll on narrow screens); longer ranges omitted from hero row. */
+export const MRVL_CHART_CHIP_IDS = ['LIVE', '1D', '5D', '7D', '1M', '3M', 'YTD'];
+
+export function mrvlChartChipRanges() {
+  const byId = new Map(MRVL_CHART_RANGES.map((r) => [r.id, r]));
+  return MRVL_CHART_CHIP_IDS.map((id) => byId.get(id)).filter(Boolean);
+}
 
 export function chartHistoryUrl(symbol, range = DEFAULT_RANGE, interval = DEFAULT_INTERVAL) {
   const sym = String(symbol || '').trim().toUpperCase();

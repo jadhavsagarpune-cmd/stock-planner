@@ -1,4 +1,4 @@
-import { heatmapBaselinePickerGroups } from '../lib/heatmapBaselines';
+import { HEATMAP_BASELINES, heatmapBaselinePickerGroups } from '../lib/heatmapBaselines';
 
 const ACTIVE_THEMES = {
   violet: {
@@ -56,6 +56,35 @@ export function MarketBaselineSessionRow({
           baselineId={baselineId}
           onBaselineChange={onBaselineChange}
           theme={theme}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Single scroll row: LIVE · PRE · POST · PREV · 1D · … */
+export function MarketBaselineAllRow({
+  baselineId,
+  onBaselineChange,
+  theme = 'violet',
+  ariaLabel = 'Market quote baselines',
+  className = '',
+}) {
+  if (!onBaselineChange) return null;
+  return (
+    <div
+      className={`flex gap-1 w-full overflow-x-auto overflow-y-hidden flex-nowrap pb-0.5 -mx-0.5 px-0.5 snap-x snap-mandatory scrollbar-thin ${className}`}
+      role="group"
+      aria-label={ariaLabel}
+    >
+      {HEATMAP_BASELINES.map((b) => (
+        <MarketBaselineChip
+          key={b.id}
+          b={b}
+          baselineId={baselineId}
+          onBaselineChange={onBaselineChange}
+          theme={theme}
+          className="shrink-0 snap-start"
         />
       ))}
     </div>

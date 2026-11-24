@@ -102,10 +102,12 @@ const histSrc = readFileSync(
   'utf8',
 );
 if (
-  !/^\s*\{ id: '1D', label: '1D', range: '1d', interval: '[15]m' \},/m.test(histSrc)
-  || !histSrc.includes("export const DEFAULT_MRVL_CHART_RANGE_ID = '1D';")
+  !histSrc.includes("id: 'LIVE'")
+  || !/^\s*\{ id: '1D', label: '1D', range: '1d', interval: '5m' \},/m.test(histSrc)
+  || !histSrc.includes("export const DEFAULT_MRVL_CHART_RANGE_ID = 'LIVE';")
+  || !histSrc.includes("export const MRVL_CHART_CHIP_IDS = ['LIVE', '1D',")
 ) {
-  console.error('FAIL 1D range chip / default in historicalQuotes.js');
+  console.error('FAIL LIVE / 1D range chips / default in historicalQuotes.js');
   process.exit(1);
 }
 

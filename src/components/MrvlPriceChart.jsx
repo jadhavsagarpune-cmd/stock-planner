@@ -5,6 +5,7 @@ import {
   fetchYahooChartCloses,
   mergeLivePriceIntoBars,
   MRVL_CHART_RANGES,
+  mrvlChartChipRanges,
 } from '../lib/historicalQuotes';
 import { MARVELL_HERO_PANEL, MARVELL_TICKER_CHIP, MARVELL_TICKER } from '../lib/marvellBrand';
 import {
@@ -24,8 +25,6 @@ import {
 import MarketStatusChip from './MarketStatusChip';
 import YahooQuoteStrip from './YahooQuoteStrip';
 import { pickActiveSessionPrice, sessionHeadlineLabel } from '../lib/sessionQuote';
-import { MarketBaselineHistoryRow, MarketBaselineSessionRow } from './MarketBaselineChips';
-import { heatmapBaselineMeta } from '../lib/heatmapBaselines';
 
 const CHART_W = 640;
 const CHART_H = 160;
@@ -103,6 +102,18 @@ export default function MrvlPriceChart({
       ?? MRVL_CHART_RANGES.find((r) => r.id === DEFAULT_MRVL_CHART_RANGE_ID)
       ?? MRVL_CHART_RANGES[0],
     [rangeId],
+  );
+
+  const chartChips = useMemo(() => mrvlChartChipRanges(), []);
+
+  const onChartRangeSelect = useCallback(
+    (r) => {
+      setRangeId(r.id);
+      if (r.syncBaselineId && onBaselineChange) {
+        onBaselineChange(r.syncBaselineId);
+      }
+    },
+    [onBaselineChange],
   );
 
   const loadChart = useCallback(async (signal) => {
@@ -231,7 +242,6 @@ export default function MrvlPriceChart({
   const currency = mrvl?.currency ?? 'USD';
   const rangeChipLabel = rangeSpec.label;
   const basisLine = chartPriceBasisLine(mrvl);
-  const quoteViewMeta = heatmapBaselineMeta(baselineId);
 
   return (
     <section className={`mb-4 rounded-xl border p-3 sm:p-4 ${MARVELL_HERO_PANEL}`}>
@@ -244,24 +254,34 @@ export default function MrvlPriceChart({
           {mrvl ? <MarketStatusChip quote={mrvl} className="shrink-0" /> : null}
         </div>
         <div
-          className="flex gap-1 w-full sm:w-auto sm:justify-end overflow-x-auto overflow-y-hidden flex-nowrap pb-0.5 -mx-0.5 px-0.5 snap-x snap-mandatory scrollbar-thin"
+          className="flex gap-1 w-full sm:w-auto sm:justify-end min-w-0 overflow-x-auto overflow-y-visible flex-nowrap pb-0.5 -mx-0.5 px-0.5 snap-x snap-mandatory scrollbar-thin touch-pan-x"
           role="tablist"
           aria-label="MRVL chart range"
         >
-          {MRVL_CHART_RANGES.map((r) => {
+          {chartChips.map((r) => {
             const active = r.id === rangeId;
+            const isLiveChip = r.id === 'LIVE';
             return (
               <button
                 key={r.id}
                 type="button"
                 role="tab"
                 aria-selected={active}
-                onClick={() => setRangeId(r.id)}
-                className={`shrink-0 snap-start text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border tabular-nums transition-colors ${
+                onClick={() => onChartRangeSelect(r)}
+                className={`shrink-0 snap-start text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border font-semibold tracking-wide tabular-nums transition-colors ${
                   active
-                    ? 'bg-amber-500/25 text-amber-100 border-amber-400/60'
-                    : 'bg-slate-950/40 text-slate-400 border-slate-600/50 hover:border-amber-500/35 hover:text-amber-200/90'
+                    ? isLiveChip
+                      ? 'bg-emerald-500/30 text-emerald-50 border-emerald-400/70'
+                      : 'bg-amber-500/25 text-amber-100 border-amber-400/60'
+                    : isLiveChip
+                      ? 'bg-slate-950/40 text-emerald-400/90 border-emerald-600/45 hover:border-emerald-400/50 hover:text-emerald-200'
+                      : 'bg-slate-950/40 text-slate-400 border-slate-600/50 hover:border-amber-500/35 hover:text-amber-200/90'
                 }`}
+                title={
+                  isLiveChip
+                    ? 'Today’s session (5m) with live quote on the last bar · sets hero % to LIVE'
+                    : undefined
+                }
               >
                 {r.label}
               </button>
@@ -269,37 +289,6 @@ export default function MrvlPriceChart({
           })}
         </div>
       </div>
-
-      {onBaselineChange ? (
-        <div className="mb-2 space-y-1.5 border-b border-amber-500/15 pb-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wide text-slate-500 shrink-0">
-              Quote view
-            </span>
-            <span
-              className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold tracking-wider ${quoteViewMeta.badgeClass}`}
-            >
-              {quoteViewMeta.badge}
-            </span>
-            <MarketBaselineSessionRow
-              baselineId={baselineId}
-              onBaselineChange={onBaselineChange}
-              theme="amber"
-              ariaLabel="MRVL quote session baselines"
-            />
-          </div>
-          <MarketBaselineHistoryRow
-            baselineId={baselineId}
-            onBaselineChange={onBaselineChange}
-            theme="amber"
-            ariaLabel="MRVL quote historical baselines"
-            scrollable
-          />
-          <p className="text-[10px] text-slate-500 leading-snug">
-            Baselines affect hero quote % only · chart tabs ({rangeChipLabel}) stay historical
-          </p>
-        </div>
-      ) : null}
 
       {mrvlErr ? (
         <p className="text-sm text-amber-300 mb-2">{mrvlErr}</p>

@@ -8,7 +8,7 @@ import {
 import { formatChangePct, formatStockPrice, formatInr } from '../lib/stockFormat';
 import { loadMrvlCustomUsd, saveMrvlCustomUsd } from '../lib/holdingsStorage';
 import YahooQuoteStrip from './YahooQuoteStrip';
-import { MarketBaselineHistoryRow, MarketBaselineSessionRow } from './MarketBaselineChips';
+import { MarketBaselineAllRow } from './MarketBaselineChips';
 import { heatmapBaselineMeta } from '../lib/heatmapBaselines';
 
 const PRICE_DELTA_EPS = 0.005;
@@ -184,25 +184,22 @@ export default function MrvlHoldingsPanel({
 
         <div className="px-4 py-3 space-y-3">
           {onBaselineChange ? (
-            <div className="rounded-lg border border-slate-700/60 bg-slate-950/50 px-2.5 py-2 space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] uppercase tracking-wide text-slate-500">Quote view</span>
+            <div className="rounded-lg border border-slate-700/60 bg-slate-950/50 px-2.5 py-2 space-y-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-[10px] uppercase tracking-wide text-slate-500 shrink-0">
+                  Quote %
+                </span>
                 <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold ${quoteViewMeta.badgeClass}`}
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold shrink-0 ${quoteViewMeta.badgeClass}`}
                 >
                   {quoteViewMeta.badge}
                 </span>
-                <MarketBaselineSessionRow
-                  baselineId={baselineId}
-                  onBaselineChange={onBaselineChange}
-                  theme="slate"
-                />
               </div>
-              <MarketBaselineHistoryRow
+              <MarketBaselineAllRow
                 baselineId={baselineId}
                 onBaselineChange={onBaselineChange}
                 theme="slate"
-                scrollable
+                ariaLabel="MRVL holdings quote baselines"
               />
             </div>
           ) : null}
