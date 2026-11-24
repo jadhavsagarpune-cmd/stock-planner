@@ -257,7 +257,6 @@ export default function App() {
           baselineId={heatmapBaseline}
           onBaselineChange={onHeatmapBaselineChange}
           dailyBySymbol={dailyBySymbol}
-          extendedMode={extendedMode}
         />
       </div>
 

@@ -4,18 +4,35 @@ import {
   pickHeatmapChangePct,
   pickHeatmapPrice,
 } from './stockFormat.js';
-import { normalizeMarketState, resolveUsExtendedColumnMode } from './stockMarketSession.js';
+import { heatmapSessionMeta, normalizeMarketState, resolveUsExtendedColumnMode } from './stockMarketSession.js';
 
 export const HEATMAP_BASELINE_STORAGE_KEY = 'stock-planner.heatmapBaseline';
 
 /** Heatmap % reference options (independent of watchlist session column). */
 export const HEATMAP_BASELINES = [
   {
-    id: 'pre',
-    label: 'Session',
-    badge: 'PRE',
-    subtitle: 'Live, pre-market, or after-hours % vs previous close (by US session)',
+    id: 'live',
+    label: 'Live',
+    badge: 'LIVE',
+    subtitle: 'Regular session % vs previous close (Yahoo day change)',
     needsSessionPrice: true,
+    sessionMode: 'regular',
+  },
+  {
+    id: 'pre',
+    label: 'Pre-market',
+    badge: 'PRE',
+    subtitle: 'Pre-market % vs previous close',
+    needsSessionPrice: true,
+    sessionMode: 'pre',
+  },
+  {
+    id: 'post',
+    label: 'After Market',
+    badge: 'POST',
+    subtitle: 'After-hours % vs previous close',
+    needsSessionPrice: true,
+    sessionMode: 'post',
   },
   {
     id: 'previous_close',
@@ -60,6 +77,17 @@ export const HEATMAP_BASELINES = [
   },
 ];
 
+/** Session chips (LIVE / PRE / POST) vs multi-day reference chips. */
+export function heatmapBaselinePickerGroups() {
+  const session = [];
+  const history = [];
+  for (const b of HEATMAP_BASELINES) {
+    if (b.sessionMode) session.push(b);
+    else history.push(b);
+  }
+  return { session, history };
+}
+
 export function loadHeatmapBaselineId() {
   try {
     const v = localStorage.getItem(HEATMAP_BASELINE_STORAGE_KEY);
@@ -67,7 +95,12 @@ export function loadHeatmapBaselineId() {
   } catch {
     /* ignore */
   }
-  return 'pre';
+  return 'live';
+}
+
+function baselineSessionMode(baselineId) {
+  const spec = HEATMAP_BASELINES.find((b) => b.id === baselineId);
+  return spec?.sessionMode ?? null;
 }
 
 export function saveHeatmapBaselineId(id) {
@@ -80,10 +113,10 @@ export function saveHeatmapBaselineId(id) {
 
 export function heatmapBaselineMeta(baselineId) {
   const base = HEATMAP_BASELINES.find((b) => b.id === baselineId) ?? HEATMAP_BASELINES[0];
-  const badgeClass =
-    baselineId === 'pre'
-      ? 'bg-violet-500/15 text-violet-200 border-violet-500/35'
-      : 'bg-slate-800/80 text-slate-300 border-slate-600/50';
+  if (base.sessionMode) {
+    return { ...heatmapSessionMeta(base.sessionMode), base };
+  }
+  const badgeClass = 'bg-slate-800/80 text-slate-300 border-slate-600/50';
   return {
     title: `Heatmap · ${base.label}`,
     badge: base.badge,
@@ -157,8 +190,9 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
   if (!it || it.status !== 'done') return null;
   const sym = String(it.name || '').trim().toUpperCase();
 
-  if (baselineId === 'pre') {
-    return pickHeatmapChangePct(it, rowSessionMode(it));
+  const forcedSession = baselineSessionMode(baselineId);
+  if (forcedSession) {
+    return pickHeatmapChangePct(it, forcedSession);
   }
 
   if (baselineId === 'previous_close') {
@@ -192,8 +226,9 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
 
 export function pickHeatmapPriceForBaseline(it, baselineId, daily = null) {
   if (!it || it.status !== 'done') return null;
-  if (baselineId === 'pre') {
-    return pickHeatmapPrice(it, rowSessionMode(it)) ?? pickCurrentHeatmapPrice(it);
+  const forcedSession = baselineSessionMode(baselineId);
+  if (forcedSession) {
+    return pickHeatmapPrice(it, forcedSession) ?? pickCurrentHeatmapPrice(it);
   }
   if (baselineId === 'previous_close') {
     return pickCurrentHeatmapPrice(it) ?? it.regular_price;

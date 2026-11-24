@@ -1,14 +1,13 @@
 import { ALL_WATCHLIST_ENTRIES } from '../data/watchlist';
 import { formatChangePct } from '../lib/stockFormat';
 import {
-  HEATMAP_BASELINES,
   baselineNeedsDailyHistory,
   formatHeatmapTileTitleForBaseline,
   heatmapBaselineMeta,
+  heatmapBaselinePickerGroups,
   pickHeatmapChangePctForBaseline,
 } from '../lib/heatmapBaselines';
 import { MARVELL_ACCENT_RING, isMarvellCompany } from '../lib/marvellBrand';
-import { heatmapSessionMeta } from '../lib/stockMarketSession';
 import { MarvellTickerBadge } from './MarvellMarker';
 
 function heatColor(pct) {
@@ -77,32 +76,59 @@ function googleStockSearchUrl(symbol) {
   return `https://www.google.com/search?q=${encodeURIComponent(`${sym} stock`)}`;
 }
 
+function HeatmapBaselineChip({ b, baselineId, onBaselineChange }) {
+  const active = b.id === baselineId;
+  return (
+    <button
+      key={b.id}
+      type="button"
+      onClick={() => onBaselineChange(b.id)}
+      className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold tracking-wide transition-colors ${
+        active
+          ? 'bg-violet-600/35 text-violet-100 border-violet-500/50'
+          : 'bg-slate-900/60 text-slate-400 border-slate-700/80 hover:border-slate-500/60 hover:text-slate-200'
+      }`}
+      title={b.subtitle}
+      aria-pressed={active}
+    >
+      {b.badge}
+    </button>
+  );
+}
+
 function HeatmapBaselinePicker({ baselineId, onBaselineChange }) {
   if (!onBaselineChange) return null;
+  const { session, history } = heatmapBaselinePickerGroups();
   return (
-    <div
-      className="flex flex-wrap gap-1 justify-end"
-      role="group"
-      aria-label="Heatmap reference period"
-    >
-      {HEATMAP_BASELINES.map((b) => {
-        const active = b.id === baselineId;
-        return (
-          <button
+    <div className="flex flex-col gap-1.5 w-full sm:max-w-[28rem] sm:ml-auto">
+      <div
+        className="flex flex-wrap gap-1 justify-start"
+        role="group"
+        aria-label="Heatmap session baselines"
+      >
+        {session.map((b) => (
+          <HeatmapBaselineChip
             key={b.id}
-            type="button"
-            onClick={() => onBaselineChange(b.id)}
-            className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold tracking-wide transition-colors ${
-              active
-                ? 'bg-violet-600/35 text-violet-100 border-violet-500/50'
-                : 'bg-slate-900/60 text-slate-400 border-slate-700/80 hover:border-slate-500/60 hover:text-slate-200'
-            }`}
-            title={b.subtitle}
-          >
-            {b.badge}
-          </button>
-        );
-      })}
+            b={b}
+            baselineId={baselineId}
+            onBaselineChange={onBaselineChange}
+          />
+        ))}
+      </div>
+      <div
+        className="flex flex-wrap gap-1 justify-start"
+        role="group"
+        aria-label="Heatmap historical baselines"
+      >
+        {history.map((b) => (
+          <HeatmapBaselineChip
+            key={b.id}
+            b={b}
+            baselineId={baselineId}
+            onBaselineChange={onBaselineChange}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -137,13 +163,11 @@ function HeatmapTile({ sym, label, it, pct, baselineId, daily }) {
  */
 export default function SectorHeatmap({
   items,
-  baselineId = 'pre',
+  baselineId = 'live',
   onBaselineChange,
   dailyBySymbol = null,
-  extendedMode = 'regular',
 }) {
-  const session =
-    baselineId === 'pre' ? heatmapSessionMeta(extendedMode) : heatmapBaselineMeta(baselineId);
+  const session = heatmapBaselineMeta(baselineId);
   const needsHistory = baselineNeedsDailyHistory(baselineId);
   const historyReady = !needsHistory || (dailyBySymbol && dailyBySymbol.size > 0);
   const bySym = new Map();
