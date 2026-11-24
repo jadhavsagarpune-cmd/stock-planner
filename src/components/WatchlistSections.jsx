@@ -9,22 +9,23 @@ import {
   WATCHLIST_YAHOO_LEGEND,
 } from '../lib/stockFormat';
 import {
-  extendedColumnBaselineSubtitle,
-  extendedColumnLabel,
   extendedColumnTitle,
   isExtendedColumnMuted,
   previousCloseColumnTitle,
-  regularMarketColumnSubtitle,
-  regularMarketColumnTitle,
-  watchlistSecondColumnLabel,
   watchlistTwoPriceColumns,
 } from '../lib/stockMarketSession';
 import {
-  SORT_OPTIONS,
-  sectionSummaryStats,
-  sortWatchlistItems,
-  topMoversByRegularPct,
-} from '../lib/watchlistAnalytics';
+  pickHeatmapChangePctForBaseline,
+  pickHeatmapPriceForBaseline,
+} from '../lib/heatmapBaselines';
+import {
+  resolveWatchlistExtendedMode,
+  watchlistActiveColumnMeta,
+  watchlistRowChangePct,
+  watchlistUsesBaselinePct,
+} from '../lib/marketViewMode';
+import { MarketBaselineHistoryRow, MarketBaselineSessionRow } from './MarketBaselineChips';
+import { SORT_OPTIONS, sortWatchlistItems } from '../lib/watchlistAnalytics';
 import { ETF_BENCHMARKS, etfPctColorClass, formatEtfChipPct } from '../lib/etfBenchmarks';
 import StockPriceChangeLines from './StockPriceChangeLines';
 import MarvellMarker from './MarvellMarker';
@@ -37,7 +38,7 @@ import {
   isMarvellCompany,
 } from '../lib/marvellBrand';
 
-function QuoteRow({ it, extendedMode, fxRate, compact, layout }) {
+function QuoteRow({ it, extendedMode, fxRate, compact, layout, baselineId, daily, useBaselinePct }) {
   const rowMuted = it.status === 'pending';
   const rowErr = it.status === 'failed';
   const full = it.label || it.name;
@@ -51,9 +52,14 @@ function QuoteRow({ it, extendedMode, fxRate, compact, layout }) {
   const ext = pickExtendedQuote(it, extendedMode);
   const regularCell = pickRegularMarketDisplay(it);
   const isMrvl = isMarvellCompany(symbol) || isMarvellCompany(displayName) || isMarvellCompany(full);
+  const baselinePrice = useBaselinePct ? pickHeatmapPriceForBaseline(it, baselineId, daily) : null;
+  const baselinePct = useBaselinePct
+    ? pickHeatmapChangePctForBaseline(it, baselineId, daily)
+    : null;
+  const priceForInr = useBaselinePct ? baselinePrice : regularCell?.price;
   const inrHint =
-    isMrvl && fxRate != null && regularCell?.price != null
-      ? formatMrvlInrHint(regularCell.price, fxRate)
+    isMrvl && fxRate != null && priceForInr != null
+      ? formatMrvlInrHint(priceForInr, fxRate)
       : null;
   const extInrHint =
     isMrvl && fxRate != null && ext?.price != null ? formatMrvlInrHint(ext.price, fxRate) : null;
@@ -105,12 +111,37 @@ function QuoteRow({ it, extendedMode, fxRate, compact, layout }) {
           </span>
         )}
       </td>
-      {layout.showRegularMarket ? (
+      {useBaselinePct ? (
+        <td
+          className={`${compact ? 'py-1.5' : 'py-2'} text-right text-sm whitespace-nowrap ${
+            rowMuted ? 'text-slate-600' : ''
+          }`}
+        >
+          {rowErr ? (
+            <span className="text-slate-600 font-mono">—</span>
+          ) : (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
+                {formatStockPrice(baselinePrice, it.currency)}
+                {inrHint && baselinePrice != null && (
+                  <span className="text-violet-300/90 font-normal ml-1">({inrHint})</span>
+                )}
+              </span>
+              <StockPriceChangeLines
+                pct={baselinePct}
+                currency={it.currency}
+                fxRate={fxRate}
+                showInrChange={isMrvl}
+              />
+            </div>
+          )}
+        </td>
+      ) : null}
+      {!useBaselinePct && layout.showRegularMarket ? (
         <td
           className={`${compact ? 'py-1.5' : 'py-2'} pr-2 text-right text-sm whitespace-nowrap ${
             rowMuted ? 'text-slate-600' : ''
           }`}
-          title={regularMarketColumnTitle(extendedMode)}
         >
           {rowErr ? (
             <span className="text-amber-400/90 text-xs" title={it.error}>
@@ -120,7 +151,7 @@ function QuoteRow({ it, extendedMode, fxRate, compact, layout }) {
             <div className="flex flex-col items-end gap-0.5">
               <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
                 {formatStockPrice(regularCell?.price, it.currency)}
-                {regularCell?.live ? (
+                {regularCell?.live || extendedMode === 'regular' ? (
                   <span className="text-emerald-400/80 font-normal text-[9px] sm:text-[10px] ml-1">
                     live
                   </span>
@@ -141,7 +172,7 @@ function QuoteRow({ it, extendedMode, fxRate, compact, layout }) {
           )}
         </td>
       ) : null}
-      {layout.showExtended ? (
+      {!useBaselinePct && layout.showExtended ? (
         <td
           className={`${compact ? 'py-1.5' : 'py-2'} text-right text-sm whitespace-nowrap ${
             rowMuted || columnMuted ? 'text-slate-600' : ''
@@ -173,10 +204,10 @@ function QuoteRow({ it, extendedMode, fxRate, compact, layout }) {
   );
 }
 
-function MoverChip({ label, it, tone }) {
+function MoverChip({ label, it, tone, pctValue }) {
   if (!it) return null;
   const sym = String(it.name || '').trim();
-  const pct = formatChangePct(it.regular_change_pct);
+  const pct = formatChangePct(pctValue ?? it.regular_change_pct);
   const marvell = isMarvellCompany(sym) || isMarvellCompany(it.label);
   const toneClass = marvell
     ? MARVELL_MOVER_CHIP
@@ -222,6 +253,42 @@ function EtfBenchmarkChips({ etfBenchmarks }) {
   );
 }
 
+function sectionStatsForBaseline(sectionItems, baselineId, extendedMode, dailyBySymbol) {
+  const done = sectionItems.filter((it) => it.status === 'done');
+  const pcts = done
+    .map((it) => {
+      const daily = dailyBySymbol?.get(String(it.name || '').trim().toUpperCase()) ?? null;
+      return watchlistRowChangePct(it, baselineId, extendedMode, daily);
+    })
+    .filter((p) => p != null && !Number.isNaN(Number(p)));
+  let up = 0;
+  let down = 0;
+  let flat = 0;
+  for (const p of pcts) {
+    if (p > 0) up += 1;
+    else if (p < 0) down += 1;
+    else flat += 1;
+  }
+  const avg = pcts.length > 0 ? pcts.reduce((s, p) => s + p, 0) / pcts.length : null;
+  return { avg, up, down, flat, quoted: done.length, total: sectionItems.length };
+}
+
+function topMoversForBaseline(items, baselineId, extendedMode, dailyBySymbol) {
+  const done = items.filter((it) => it.status === 'done');
+  const withPct = done
+    .map((it) => {
+      const daily = dailyBySymbol?.get(String(it.name || '').trim().toUpperCase()) ?? null;
+      return {
+        it,
+        pct: watchlistRowChangePct(it, baselineId, extendedMode, daily),
+      };
+    })
+    .filter((x) => x.pct != null);
+  if (!withPct.length) return { gainer: null, loser: null };
+  const sorted = [...withPct].sort((a, b) => b.pct - a.pct);
+  return { gainer: sorted[0].it, gainerPct: sorted[0].pct, loser: sorted[sorted.length - 1].it, loserPct: sorted[sorted.length - 1].pct };
+}
+
 function SectionBlock({
   section,
   itemsBySymbol,
@@ -233,6 +300,10 @@ function SectionBlock({
   onToggleCollapse,
   onSectionSortChange,
   etfBenchmarks,
+  baselineId,
+  dailyBySymbol,
+  useBaselinePct,
+  columnMode,
 }) {
   const sectionItems = useMemo(() => {
     const rows = section.entries.map(([label, symbol]) => {
@@ -241,16 +312,18 @@ function SectionBlock({
       if (found) return found;
       return { name: symbol, label, status: 'pending' };
     });
-    return sortWatchlistItems(rows, sortKey, extendedMode, {
+    return sortWatchlistItems(rows, sortKey, columnMode, {
       pinMrvlFirst: sortKey === 'default' && section.id === 'semiconductors',
     });
-  }, [section, itemsBySymbol, sortKey, extendedMode]);
+  }, [section, itemsBySymbol, sortKey, columnMode]);
 
-  const stats = sectionSummaryStats(sectionItems);
-  const movers = topMoversByRegularPct(sectionItems);
-  const layout = watchlistTwoPriceColumns(extendedMode);
-  const columnMuted = isExtendedColumnMuted(extendedMode);
-  const col2 = watchlistSecondColumnLabel(extendedMode);
+  const stats = sectionStatsForBaseline(sectionItems, baselineId, extendedMode, dailyBySymbol);
+  const movers = topMoversForBaseline(sectionItems, baselineId, extendedMode, dailyBySymbol);
+  const layout = useBaselinePct
+    ? { showRegularMarket: false, showExtended: false }
+    : watchlistTwoPriceColumns(columnMode);
+  const columnMuted = isExtendedColumnMuted(columnMode);
+  const col2 = watchlistActiveColumnMeta(baselineId, extendedMode);
 
   return (
     <section className="rounded-xl border border-slate-700/90 bg-slate-900/60 overflow-hidden">
@@ -295,7 +368,7 @@ function SectionBlock({
           <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] sm:text-xs">
             {stats.avg != null && (
               <span className="text-slate-400 tabular-nums">
-                Avg session{' '}
+                Avg {col2.label}{' '}
                 <span
                   className={
                     stats.avg > 0
@@ -316,8 +389,8 @@ function SectionBlock({
               <span className="text-slate-500 tabular-nums">{stats.flat} flat</span>
             )}
             <span className="text-slate-600 hidden sm:inline">·</span>
-            <MoverChip label="Top" it={movers.gainer} tone="up" />
-            <MoverChip label="Low" it={movers.loser} tone="down" />
+            <MoverChip label="Top" it={movers.gainer} tone="up" pctValue={movers.gainerPct} />
+            <MoverChip label="Low" it={movers.loser} tone="down" pctValue={movers.loserPct} />
             <EtfBenchmarkChips etfBenchmarks={etfBenchmarks} />
           </div>
         )}
@@ -335,17 +408,19 @@ function SectionBlock({
                 >
                   Previous Close
                 </th>
-                <th
-                  className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
-                    columnMuted && !layout.showRegularMarket ? 'text-slate-600' : ''
-                  }`}
-                  title={col2.title}
-                >
-                  <span className="normal-case tracking-normal">{col2.label}</span>
-                  <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
-                    {col2.subtitle}
-                  </span>
-                </th>
+                {(useBaselinePct || layout.showRegularMarket || layout.showExtended) && (
+                  <th
+                    className={`font-semibold pb-2 text-right w-28 sm:w-36 ${
+                      columnMuted && !layout.showRegularMarket && !useBaselinePct ? 'text-slate-600' : ''
+                    }`}
+                    title={col2.title}
+                  >
+                    <span className="normal-case tracking-normal">{col2.label}</span>
+                    <span className="block text-[9px] font-normal normal-case tracking-normal text-slate-600">
+                      {col2.subtitle}
+                    </span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -353,10 +428,13 @@ function SectionBlock({
                 <QuoteRow
                   key={it.name}
                   it={it}
-                  extendedMode={extendedMode}
+                  extendedMode={columnMode}
                   fxRate={fxRate}
                   compact={compact}
                   layout={layout}
+                  baselineId={baselineId}
+                  daily={dailyBySymbol?.get(String(it.name || '').trim().toUpperCase()) ?? null}
+                  useBaselinePct={useBaselinePct}
                 />
               ))}
             </tbody>
@@ -367,7 +445,17 @@ function SectionBlock({
   );
 }
 
-export default function WatchlistSections({ items, extendedMode, usdInr, etfBenchmarks }) {
+export default function WatchlistSections({
+  items,
+  extendedMode,
+  usdInr,
+  etfBenchmarks,
+  baselineId = 'live',
+  onBaselineChange,
+  dailyBySymbol = null,
+}) {
+  const columnMode = resolveWatchlistExtendedMode(baselineId, extendedMode);
+  const useBaselinePct = watchlistUsesBaselinePct(baselineId);
   const [globalSort, setGlobalSort] = useState('default');
   const [sectionSortOverrides, setSectionSortOverrides] = useState({});
   const [compact, setCompact] = useState(false);
@@ -426,6 +514,26 @@ export default function WatchlistSections({ items, extendedMode, usdInr, etfBenc
           to rank extended movers.
         </p>
       )}
+      <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-2.5 py-2 space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-slate-500 shrink-0">View</span>
+          <MarketBaselineSessionRow
+            baselineId={baselineId}
+            onBaselineChange={onBaselineChange}
+            theme="slate"
+          />
+        </div>
+        <MarketBaselineHistoryRow
+          baselineId={baselineId}
+          onBaselineChange={onBaselineChange}
+          theme="slate"
+          scrollable
+        />
+        <p className="text-[10px] text-slate-600 leading-snug">
+          Same baseline as heatmap & MRVL hero · LIVE = regular session % vs previous close
+        </p>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-2 px-1">
         <p
           className="text-[11px] text-slate-500 leading-snug max-w-xl"
@@ -486,6 +594,10 @@ export default function WatchlistSections({ items, extendedMode, usdInr, etfBenc
             setSectionSortOverrides((prev) => ({ ...prev, [section.id]: value }))
           }
           etfBenchmarks={etfBenchmarks}
+          baselineId={baselineId}
+          dailyBySymbol={dailyBySymbol}
+          useBaselinePct={useBaselinePct}
+          columnMode={columnMode}
         />
       ))}
     </div>

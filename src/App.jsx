@@ -249,6 +249,9 @@ export default function App() {
         extLabel={extLabel}
         mrvlExt={mrvlExt}
         mrvlExtInrHint={mrvlExtInrHint}
+        baselineId={heatmapBaseline}
+        onBaselineChange={onHeatmapBaselineChange}
+        mrvlDaily={dailyBySymbol?.get('MRVL') ?? null}
       />
 
       <div className="mb-4">
@@ -261,7 +264,8 @@ export default function App() {
       </div>
 
       <section className="rounded-xl border border-slate-700 bg-slate-900/80 overflow-hidden">
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-slate-800">
+        <div className="flex flex-col gap-2 px-3 sm:px-4 py-2 border-b border-slate-800">
+          <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-slate-200">Watchlists</span>
           <span className="text-xs text-slate-500 tabular-nums">
             {doneCount}/{items.length || ALL_WATCHLIST_ENTRIES.length}
@@ -271,6 +275,7 @@ export default function App() {
               </span>
             )}
           </span>
+          </div>
         </div>
         <div className="px-2 sm:px-4 py-3">
           <WatchlistSections
@@ -278,6 +283,9 @@ export default function App() {
             extendedMode={extendedMode}
             usdInr={usdInr}
             etfBenchmarks={etfBenchmarks}
+            baselineId={heatmapBaseline}
+            onBaselineChange={onHeatmapBaselineChange}
+            dailyBySymbol={dailyBySymbol}
           />
         </div>
       </section>
@@ -288,6 +296,9 @@ export default function App() {
         mrvl={mrvl}
         usdInr={usdInr}
         usdInrErr={usdInrErr}
+        baselineId={heatmapBaseline}
+        onBaselineChange={onHeatmapBaselineChange}
+        mrvlDaily={dailyBySymbol?.get('MRVL') ?? null}
       />
 
       <p className="text-[11px] text-slate-600 mt-4 leading-relaxed">

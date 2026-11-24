@@ -8,6 +8,8 @@ import {
 import { formatChangePct, formatStockPrice, formatInr } from '../lib/stockFormat';
 import { loadMrvlCustomUsd, saveMrvlCustomUsd } from '../lib/holdingsStorage';
 import YahooQuoteStrip from './YahooQuoteStrip';
+import { MarketBaselineHistoryRow, MarketBaselineSessionRow } from './MarketBaselineChips';
+import { heatmapBaselineMeta } from '../lib/heatmapBaselines';
 
 const PRICE_DELTA_EPS = 0.005;
 
@@ -38,7 +40,16 @@ function formatSignedInr(amount) {
   return sign + formatInr(Math.abs(n));
 }
 
-export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrErr }) {
+export default function MrvlHoldingsPanel({
+  open,
+  onClose,
+  mrvl,
+  usdInr,
+  usdInrErr,
+  baselineId = 'live',
+  onBaselineChange,
+  mrvlDaily = null,
+}) {
   const titleId = useId();
   const [shares, setShares] = useState('');
   const [customUsd, setCustomUsd] = useState(() => loadMrvlCustomUsd());
@@ -130,6 +141,8 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
     };
   }, [customPrice, liveUsd, shareCount, fxRate]);
 
+  const quoteViewMeta = heatmapBaselineMeta(baselineId);
+
   if (!open) return null;
 
   return (
@@ -170,11 +183,34 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
         </div>
 
         <div className="px-4 py-3 space-y-3">
+          {onBaselineChange ? (
+            <div className="rounded-lg border border-slate-700/60 bg-slate-950/50 px-2.5 py-2 space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] uppercase tracking-wide text-slate-500">Quote view</span>
+                <span
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold ${quoteViewMeta.badgeClass}`}
+                >
+                  {quoteViewMeta.badge}
+                </span>
+                <MarketBaselineSessionRow
+                  baselineId={baselineId}
+                  onBaselineChange={onBaselineChange}
+                  theme="slate"
+                />
+              </div>
+              <MarketBaselineHistoryRow
+                baselineId={baselineId}
+                onBaselineChange={onBaselineChange}
+                theme="slate"
+                scrollable
+              />
+            </div>
+          ) : null}
           <div className="rounded-lg border border-amber-500/25 bg-slate-950/80 px-3 py-3 space-y-2">
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 min-[380px]:gap-4">
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">
-                  Quote · {headlineLabel}
+                  Quote · {headlineLabel} · {quoteViewMeta.badge}
                 </div>
                 {mrvl ? (
                   <YahooQuoteStrip
@@ -183,6 +219,8 @@ export default function MrvlHoldingsPanel({ open, onClose, mrvl, usdInr, usdInrE
                     fxRate={fxRate}
                     showInrChange
                     size="lg"
+                    viewBaselineId={baselineId}
+                    viewBaselineDaily={mrvlDaily}
                   />
                 ) : (
                   <p className="text-sm text-slate-500">Waiting for MRVL quote…</p>

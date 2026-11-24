@@ -12,7 +12,7 @@ If Yahoo returns 503 from your network, deploy with a tiny proxy (see below) or 
 
 ## Heatmap reference periods
 
-The sector heatmap supports **LIVE**, **PRE**, **POST**, **previous close**, **1D / 3D / 5D / 15D**, and **1M** baselines (chip row under the heatmap title). Session chips pin the comparison (regular / pre / after-hours); they do not follow the clock automatically. Multi-day views use Yahoo **daily closes** cached in the browser **IndexedDB** (`stock-planner-price-history`, ~4h TTL); each refresh also appends throttled **price snapshots** for future rollups. No server database — works on Vercel static hosting.
+The **market view** (stored in `localStorage` as `stock-planner.heatmapBaseline`) is one shared picker for **LIVE**, **PRE**, **POST**, **PREV**, **1D / 3D / 5D / 15D**, and **1M** — shown on the heatmap, MRVL chart quote row, watchlist header, and holdings dialog. **LIVE** = regular session % vs previous close. Session chips pin the comparison (regular / pre / after-hours); they do not follow the clock automatically. MRVL **chart tabs** (1D, 5D, …) stay historical ranges only. Multi-day views use Yahoo **daily closes** cached in the browser **IndexedDB** (`stock-planner-price-history`, ~4h TTL); each refresh also appends throttled **price snapshots** for future rollups. No server database — works on Vercel static hosting.
 
 ## Local dev
 

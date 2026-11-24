@@ -24,6 +24,8 @@ import {
 import MarketStatusChip from './MarketStatusChip';
 import YahooQuoteStrip from './YahooQuoteStrip';
 import { pickActiveSessionPrice, sessionHeadlineLabel } from '../lib/sessionQuote';
+import { MarketBaselineHistoryRow, MarketBaselineSessionRow } from './MarketBaselineChips';
+import { heatmapBaselineMeta } from '../lib/heatmapBaselines';
 
 const CHART_W = 640;
 const CHART_H = 160;
@@ -74,7 +76,19 @@ function chartPriceBasisLine(mrvl) {
     : 'Chart from Yahoo closes; intraday ranges refresh about every 60s.';
 }
 
-export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, extMuted, extLabel, mrvlExt, mrvlExtInrHint }) {
+export default function MrvlPriceChart({
+  mrvl,
+  mrvlErr,
+  fxRate,
+  mrvlInrHint,
+  extMuted,
+  extLabel,
+  mrvlExt,
+  mrvlExtInrHint,
+  baselineId = 'live',
+  onBaselineChange,
+  mrvlDaily = null,
+}) {
   const [rangeId, setRangeId] = useState(DEFAULT_MRVL_CHART_RANGE_ID);
   const [bars, setBars] = useState([]);
   const [chartErr, setChartErr] = useState('');
@@ -217,6 +231,7 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
   const currency = mrvl?.currency ?? 'USD';
   const rangeChipLabel = rangeSpec.label;
   const basisLine = chartPriceBasisLine(mrvl);
+  const quoteViewMeta = heatmapBaselineMeta(baselineId);
 
   return (
     <section className={`mb-4 rounded-xl border p-3 sm:p-4 ${MARVELL_HERO_PANEL}`}>
@@ -255,6 +270,37 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
         </div>
       </div>
 
+      {onBaselineChange ? (
+        <div className="mb-2 space-y-1.5 border-b border-amber-500/15 pb-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] uppercase tracking-wide text-slate-500 shrink-0">
+              Quote view
+            </span>
+            <span
+              className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold tracking-wider ${quoteViewMeta.badgeClass}`}
+            >
+              {quoteViewMeta.badge}
+            </span>
+            <MarketBaselineSessionRow
+              baselineId={baselineId}
+              onBaselineChange={onBaselineChange}
+              theme="amber"
+              ariaLabel="MRVL quote session baselines"
+            />
+          </div>
+          <MarketBaselineHistoryRow
+            baselineId={baselineId}
+            onBaselineChange={onBaselineChange}
+            theme="amber"
+            ariaLabel="MRVL quote historical baselines"
+            scrollable
+          />
+          <p className="text-[10px] text-slate-500 leading-snug">
+            Baselines affect hero quote % only · chart tabs ({rangeChipLabel}) stay historical
+          </p>
+        </div>
+      ) : null}
+
       {mrvlErr ? (
         <p className="text-sm text-amber-300 mb-2">{mrvlErr}</p>
       ) : hasQuote ? (
@@ -267,6 +313,8 @@ export default function MrvlPriceChart({ mrvl, mrvlErr, fxRate, mrvlInrHint, ext
             showInrChange
             companyName="Marvell Technology, Inc."
             ticker="MRVL"
+            viewBaselineId={baselineId}
+            viewBaselineDaily={mrvlDaily}
           />
           {periodPct != null && chartBars.length > 1 && (
             <p className="text-[11px] sm:text-xs tabular-nums leading-snug">

@@ -12,6 +12,13 @@ import {
   pickSessionDayChange,
   resolveActiveSession,
 } from '../lib/sessionQuote';
+import {
+  pickHeatmapChangePctForBaseline,
+  pickHeatmapPriceForBaseline,
+  heatmapBaselineMeta,
+} from '../lib/heatmapBaselines';
+import { sessionModeFromBaselineId, watchlistUsesBaselinePct } from '../lib/marketViewMode';
+import { pickHeatmapChangePct, pickHeatmapPrice } from '../lib/stockFormat';
 
 function SessionColumn({
   title,
@@ -65,20 +72,49 @@ function YahooQuoteHero({
   ticker = 'MRVL',
   className = '',
   now = new Date(),
+  viewBaselineId = null,
+  viewBaselineDaily = null,
 }) {
-  const session = resolveActiveSession(quote, now);
-  const headlinePrice = pickActiveSessionPrice(quote, now);
-  const dayChange = pickSessionDayChange(quote, now);
-  const headlinePct = dayChange?.pct ?? null;
-  const headlineAbs = dayChange?.abs ?? null;
-  const headlineLabel =
-    session === 'pre'
-      ? 'Pre-market'
-      : session === 'post'
-        ? 'After-hours'
-        : session === 'regular'
-          ? 'Regular Market'
-          : 'At close';
+  const forcedSession = viewBaselineId ? sessionModeFromBaselineId(viewBaselineId) : null;
+  const historicalView = viewBaselineId && watchlistUsesBaselinePct(viewBaselineId);
+
+  let session = forcedSession ?? resolveActiveSession(quote, now);
+  let headlinePrice = pickActiveSessionPrice(quote, now);
+  let headlinePct = null;
+  let headlineAbs = null;
+  let headlineLabel;
+  let headlineSubnote = null;
+
+  if (historicalView) {
+    headlinePrice = pickHeatmapPriceForBaseline(quote, viewBaselineId, viewBaselineDaily);
+    headlinePct = pickHeatmapChangePctForBaseline(quote, viewBaselineId, viewBaselineDaily);
+    const meta = heatmapBaselineMeta(viewBaselineId);
+    session = null;
+    headlineLabel = `Quote · ${meta.badge}`;
+    headlineSubnote = meta.subtitle;
+  } else if (forcedSession) {
+    headlinePrice = pickHeatmapPrice(quote, forcedSession) ?? pickActiveSessionPrice(quote, now);
+    headlinePct = pickHeatmapChangePct(quote, forcedSession);
+    session = forcedSession;
+    headlineLabel =
+      forcedSession === 'pre'
+        ? 'Pre-market'
+        : forcedSession === 'post'
+          ? 'After Market'
+          : 'Regular Market · LIVE';
+  } else {
+    const dayChange = pickSessionDayChange(quote, now);
+    headlinePct = dayChange?.pct ?? null;
+    headlineAbs = dayChange?.abs ?? null;
+    headlineLabel =
+      session === 'pre'
+        ? 'Pre-market'
+        : session === 'post'
+          ? 'After-hours'
+          : session === 'regular'
+            ? 'Regular Market · LIVE'
+            : 'At close';
+  }
 
   let headlineTime = null;
   if (session === 'pre') headlineTime = formatUsMarketTime(quote.pre_market_time);
@@ -87,7 +123,7 @@ function YahooQuoteHero({
   else headlineTime = formatAtCloseTime(quote.regular_market_time);
 
   let secondary = null;
-  if (session === 'pre') {
+  if (!forcedSession && !historicalView && session === 'pre') {
     secondary = {
       title: 'At close',
       timeLabel: formatAtCloseTime(quote.regular_market_time),
@@ -96,7 +132,7 @@ function YahooQuoteHero({
       abs: quote.regular_change_abs,
       showChange: true,
     };
-  } else if (session === 'post') {
+  } else if (!forcedSession && !historicalView && session === 'post') {
     const atClose = pickRegularMarketDisplay(quote, now);
     secondary = {
       title: 'At close',
@@ -144,6 +180,9 @@ function YahooQuoteHero({
       >
         <div className="min-w-0">
           <div className="text-[11px] sm:text-xs text-slate-400 font-medium">{headlineLabel}</div>
+          {headlineSubnote ? (
+            <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">{headlineSubnote}</div>
+          ) : null}
           {headlineTime ? (
             <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums">{headlineTime}</div>
           ) : null}
@@ -218,6 +257,8 @@ export default function YahooQuoteStrip({
   companyName,
   ticker = 'MRVL',
   className = '',
+  viewBaselineId = null,
+  viewBaselineDaily = null,
 }) {
   if (!quote) return null;
 
@@ -232,13 +273,18 @@ export default function YahooQuoteStrip({
         ticker={ticker}
         className={className}
         now={now}
+        viewBaselineId={viewBaselineId}
+        viewBaselineDaily={viewBaselineDaily}
       />
     );
   }
 
-  const session = resolveActiveSession(quote, now);
-  const showAfter = session === 'post';
-  const showPre = session === 'pre';
+  const forcedSession = viewBaselineId ? sessionModeFromBaselineId(viewBaselineId) : null;
+  const historicalView = viewBaselineId && watchlistUsesBaselinePct(viewBaselineId);
+  const session = forcedSession ?? resolveActiveSession(quote, now);
+  const showAfter = forcedSession ? forcedSession === 'post' : session === 'post';
+  const showPre = forcedSession ? forcedSession === 'pre' : session === 'pre';
+  const showRegular = historicalView || forcedSession === 'regular' || (!showPre && !showAfter);
   const regularCell = pickRegularMarketDisplay(quote, now);
   const regularInr =
     showInrChange && fxRate != null && regularCell?.price != null
@@ -261,6 +307,17 @@ export default function YahooQuoteStrip({
   const labelClass = 'text-[10px] uppercase tracking-wide text-slate-500 font-medium';
   const rowGap = size === 'lg' ? 'space-y-2.5' : 'space-y-1.5';
 
+  const historicalPrice = historicalView
+    ? pickHeatmapPriceForBaseline(quote, viewBaselineId, viewBaselineDaily)
+  : null;
+  const historicalPct = historicalView
+    ? pickHeatmapChangePctForBaseline(quote, viewBaselineId, viewBaselineDaily)
+    : null;
+  const historicalMeta = historicalView ? heatmapBaselineMeta(viewBaselineId) : null;
+  const forcedRegularPct = forcedSession === 'regular' ? pickHeatmapChangePct(quote, 'regular') : null;
+  const forcedRegularPrice =
+    forcedSession === 'regular' ? pickHeatmapPrice(quote, 'regular') : null;
+
   return (
     <div className={`${rowGap} ${className}`}>
       <div>
@@ -269,20 +326,38 @@ export default function YahooQuoteStrip({
           {formatStockPrice(quote.previous_close, currency)}
         </div>
       </div>
-      {!showPre && (
+      {historicalView ? (
+        <div>
+          <div className={labelClass}>{historicalMeta?.badge ?? 'View'}</div>
+          <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
+            {formatStockPrice(historicalPrice, currency)}
+          </div>
+          <StockPriceChangeLines
+            pct={historicalPct}
+            currency={currency}
+            fxRate={fxRate}
+            showInrChange={showInrChange}
+            className="!items-start mt-0.5"
+          />
+        </div>
+      ) : null}
+      {showRegular && !historicalView ? (
         <div>
           <div className={labelClass}>
             Regular Market
-            {regularCell?.live ? (
-              <span className="text-emerald-400/90 normal-case tracking-normal ml-1">live</span>
+            {regularCell?.live || forcedSession === 'regular' ? (
+              <span className="text-emerald-400/90 normal-case tracking-normal ml-1">LIVE</span>
             ) : null}
           </div>
           <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
-            {regularCell?.preIdle ? (
+            {regularCell?.preIdle && !forcedSession ? (
               <span className="text-slate-500">—</span>
             ) : (
               <>
-                {formatStockPrice(regularCell?.price ?? quote.regular_price, currency)}
+                {formatStockPrice(
+                  forcedRegularPrice ?? regularCell?.price ?? quote.regular_price,
+                  currency,
+                )}
                 {regularInr && (
                   <span className="text-violet-300/90 font-normal ml-1 text-[10px] sm:text-xs">
                     ({regularInr})
@@ -291,10 +366,10 @@ export default function YahooQuoteStrip({
               </>
             )}
           </div>
-          {!regularCell?.preIdle ? (
+          {(!regularCell?.preIdle || forcedSession === 'regular') ? (
             <StockPriceChangeLines
               quote={quote}
-              pct={regularCell?.pct ?? quote.regular_change_pct}
+              pct={forcedRegularPct ?? regularCell?.pct ?? quote.regular_change_pct}
               changeAbs={regularCell?.abs ?? quote.regular_change_abs}
               currency={currency}
               fxRate={fxRate}
@@ -303,8 +378,8 @@ export default function YahooQuoteStrip({
             />
           ) : null}
         </div>
-      )}
-      {showAfter && ext?.price != null && (
+      ) : null}
+      {showAfter && !historicalView && ext?.price != null && (
         <div>
           <div className={labelClass}>After Market</div>
           <div className={`mt-0.5 font-mono tabular-nums text-violet-100 ${priceClass}`}>
@@ -325,7 +400,7 @@ export default function YahooQuoteStrip({
           />
         </div>
       )}
-      {showPre && ext?.price != null && (
+      {showPre && !historicalView && ext?.price != null && (
         <div>
           <div className={labelClass}>Pre-market</div>
           <div className={`mt-0.5 font-mono tabular-nums text-amber-100 ${priceClass}`}>
