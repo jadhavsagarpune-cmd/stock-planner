@@ -118,7 +118,7 @@ export function heatmapBaselineMeta(baselineId) {
   }
   const badgeClass = 'bg-slate-800/80 text-slate-300 border-slate-600/50';
   return {
-    title: `Heatmap · ${base.label}`,
+    title: `Market heatmap · ${base.label}`,
     badge: base.badge,
     subtitle: base.subtitle,
     badgeClass,

@@ -150,7 +150,7 @@ export function heatmapSessionMeta(mode) {
   if (mode === 'regular') {
     return {
       badge: 'LIVE',
-      title: 'Heatmap · Live',
+      title: 'Market heatmap · Live',
       subtitle: 'Regular session % vs previous close · clustered by move',
       badgeClass:
         'bg-emerald-950/80 text-emerald-300 border-emerald-600/50 ring-1 ring-emerald-500/30',
@@ -159,7 +159,7 @@ export function heatmapSessionMeta(mode) {
   if (mode === 'pre') {
     return {
       badge: 'PRE',
-      title: 'Heatmap · Pre-market',
+      title: 'Market heatmap · Pre-market',
       subtitle: 'Pre-market % vs previous close · US names (KRX uses local session)',
       badgeClass:
         'bg-amber-950/80 text-amber-200 border-amber-600/50 ring-1 ring-amber-500/30',
@@ -167,7 +167,7 @@ export function heatmapSessionMeta(mode) {
   }
   return {
     badge: 'POST',
-    title: 'Heatmap · After Market',
+    title: 'Market heatmap · After Market',
     subtitle: 'After-hours % vs regular close · US names (KRX uses local session)',
     badgeClass:
       'bg-violet-950/80 text-violet-200 border-violet-600/50 ring-1 ring-violet-500/30',

@@ -76,14 +76,14 @@ function googleStockSearchUrl(symbol) {
   return `https://www.google.com/search?q=${encodeURIComponent(`${sym} stock`)}`;
 }
 
-function HeatmapBaselineChip({ b, baselineId, onBaselineChange }) {
+function HeatmapBaselineChip({ b, baselineId, onBaselineChange, className = '' }) {
   const active = b.id === baselineId;
   return (
     <button
       key={b.id}
       type="button"
       onClick={() => onBaselineChange(b.id)}
-      className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold tracking-wide transition-colors ${
+      className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold tracking-wide transition-colors ${className} ${
         active
           ? 'bg-violet-600/35 text-violet-100 border-violet-500/50'
           : 'bg-slate-900/60 text-slate-400 border-slate-700/80 hover:border-slate-500/60 hover:text-slate-200'
@@ -96,39 +96,45 @@ function HeatmapBaselineChip({ b, baselineId, onBaselineChange }) {
   );
 }
 
-function HeatmapBaselinePicker({ baselineId, onBaselineChange }) {
+function HeatmapSessionBaselineRow({ baselineId, onBaselineChange }) {
   if (!onBaselineChange) return null;
-  const { session, history } = heatmapBaselinePickerGroups();
+  const { session } = heatmapBaselinePickerGroups();
   return (
-    <div className="flex flex-col gap-1.5 w-full sm:max-w-[28rem] sm:ml-auto">
-      <div
-        className="flex flex-wrap gap-1 justify-start"
-        role="group"
-        aria-label="Heatmap session baselines"
-      >
-        {session.map((b) => (
-          <HeatmapBaselineChip
-            key={b.id}
-            b={b}
-            baselineId={baselineId}
-            onBaselineChange={onBaselineChange}
-          />
-        ))}
-      </div>
-      <div
-        className="flex flex-wrap gap-1 justify-start"
-        role="group"
-        aria-label="Heatmap historical baselines"
-      >
-        {history.map((b) => (
-          <HeatmapBaselineChip
-            key={b.id}
-            b={b}
-            baselineId={baselineId}
-            onBaselineChange={onBaselineChange}
-          />
-        ))}
-      </div>
+    <div
+      className="flex flex-nowrap gap-1 shrink-0"
+      role="group"
+      aria-label="Heatmap session baselines"
+    >
+      {session.map((b) => (
+        <HeatmapBaselineChip
+          key={b.id}
+          b={b}
+          baselineId={baselineId}
+          onBaselineChange={onBaselineChange}
+        />
+      ))}
+    </div>
+  );
+}
+
+function HeatmapHistoryBaselineRow({ baselineId, onBaselineChange }) {
+  if (!onBaselineChange) return null;
+  const { history } = heatmapBaselinePickerGroups();
+  return (
+    <div
+      className="flex gap-1 w-full overflow-x-auto overflow-y-hidden flex-nowrap pb-0.5 -mx-0.5 px-0.5 snap-x snap-mandatory scrollbar-thin"
+      role="group"
+      aria-label="Heatmap historical baselines"
+    >
+      {history.map((b) => (
+        <HeatmapBaselineChip
+          key={b.id}
+          b={b}
+          baselineId={baselineId}
+          onBaselineChange={onBaselineChange}
+          className="shrink-0 snap-start"
+        />
+      ))}
     </div>
   );
 }
@@ -204,32 +210,40 @@ export default function SectorHeatmap({
     .sort((a, b) => a.sym.localeCompare(b.sym));
 
   return (
-    <div className="rounded-xl border border-slate-700/90 bg-slate-900/50 p-3 sm:p-4">
-      <div className="flex flex-col gap-2 mb-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wide">
-            {session.title}
-          </h2>
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold tracking-wider ${session.badgeClass}`}
-          >
-            {session.badge}
-          </span>
-          {needsHistory && !historyReady && (
-            <span className="text-[10px] text-amber-400/90">Loading history…</span>
-          )}
-        </div>
-        <div className="flex flex-col gap-1.5 sm:items-end min-w-0">
-          <span className="text-[10px] text-slate-500 leading-snug sm:text-right max-w-[20rem]">
+    <section
+      id="sector-heatmap"
+      aria-label="Market sector heatmap"
+      className="rounded-xl border border-slate-700/90 bg-slate-900/50 p-3 sm:p-4"
+    >
+      <div className="sticky top-0 z-[1] -mx-3 -mt-3 px-3 pt-3 pb-2 mb-2 sm:-mx-4 sm:-mt-4 sm:px-4 sm:pt-4 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800/80">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 min-w-0">
+            <h2 className="text-xs font-semibold text-slate-300 uppercase tracking-wide shrink-0">
+              {session.title}
+            </h2>
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold tracking-wider shrink-0 ${session.badgeClass}`}
+            >
+              {session.badge}
+            </span>
+            <HeatmapSessionBaselineRow
+              baselineId={baselineId}
+              onBaselineChange={onBaselineChange}
+            />
+            {needsHistory && !historyReady && (
+              <span className="text-[10px] text-amber-400/90 shrink-0">Loading history…</span>
+            )}
+          </div>
+          <HeatmapHistoryBaselineRow
+            baselineId={baselineId}
+            onBaselineChange={onBaselineChange}
+          />
+          <p className="text-[10px] text-slate-500 leading-snug">
             {session.subtitle}
             {needsHistory
               ? ' · Daily closes cached locally (IndexedDB); snapshots recorded on each refresh.'
               : ''}
-          </span>
-          <HeatmapBaselinePicker
-            baselineId={baselineId}
-            onBaselineChange={onBaselineChange}
-          />
+          </p>
         </div>
       </div>
       <div className="space-y-3">
@@ -289,6 +303,6 @@ export default function SectorHeatmap({
           </div>
         )}
       </div>
-    </div>
+    </section>
   );
 }
