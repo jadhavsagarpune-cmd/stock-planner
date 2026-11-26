@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ALL_WATCHLIST_ENTRIES } from './data/watchlist';
 import { fetchMrvlQuote, fetchUsdInrRate, fetchWatchlistQuotes } from './lib/quotes';
 import { fetchEtfBenchmarks } from './lib/etfBenchmarks';
@@ -16,6 +16,10 @@ import {
   requestNotificationPermission,
   setDesktopNotificationsEnabled,
 } from './lib/stockPriceAlerts';
+import { fetchNews } from './lib/news';
+import { buildMoveMap, rankNews } from './lib/newsRank';
+import NewsTicker from './components/NewsTicker';
+import NewsPanel from './components/NewsPanel';
 import WatchlistSections from './components/WatchlistSections';
 import SectorHeatmap from './components/SectorHeatmap';
 import MrvlPriceChart from './components/MrvlPriceChart';
@@ -67,6 +71,22 @@ export default function App() {
   const [etfBenchmarks, setEtfBenchmarks] = useState(null);
   const [heatmapBaseline, setHeatmapBaseline] = useState(() => loadHeatmapBaselineId());
   const [dailyBySymbol, setDailyBySymbol] = useState(() => new Map());
+
+  const [news, setNews] = useState({ items: [], windowHours: 24, ok: true });
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [newsOpen, setNewsOpen] = useState(false);
+
+  const refreshNews = useCallback(async () => {
+    setNewsLoading(true);
+    try {
+      setNews(await fetchNews(ALL_WATCHLIST_ENTRIES.map(([, s]) => s)));
+    } finally {
+      setNewsLoading(false);
+    }
+  }, []);
+
+  const moves = useMemo(() => buildMoveMap(items, mrvl), [items, mrvl]);
+  const rankedNews = useMemo(() => rankNews(news.items, moves), [news.items, moves]);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
@@ -201,6 +221,10 @@ export default function App() {
   }, [refreshAll, refreshMrvl, refreshUsdInr]);
 
   useEffect(() => {
+    void refreshNews(); // page load only; manual Refresh in panel (no polling)
+  }, [refreshNews]);
+
+  useEffect(() => {
     const id = setInterval(refreshMrvl, MRVL_POLL_MS);
     return () => clearInterval(id);
   }, [refreshMrvl]);
@@ -279,6 +303,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setNewsOpen(true)}
+            className="text-xs px-3 py-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-600 hover:border-violet-500/40"
+            aria-haspopup="dialog"
+          >
+            Top news
+          </button>
+          <button
+            type="button"
             onClick={() => downloadWatchlistCsv(items)}
             disabled={!items.length || loading}
             className="text-xs px-3 py-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-600 disabled:opacity-50"
@@ -307,6 +339,8 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      <NewsTicker items={rankedNews} moves={moves} loading={newsLoading} onOpen={() => setNewsOpen(true)} />
 
       {quotesBanner ? (
         <p className="text-[11px] text-amber-300/95 mb-2 rounded-lg border border-amber-500/30 bg-amber-950/25 px-3 py-2" role="alert">
@@ -369,6 +403,17 @@ export default function App() {
           />
         </div>
       </section>
+
+      <NewsPanel
+        open={newsOpen}
+        onClose={() => setNewsOpen(false)}
+        items={rankedNews}
+        moves={moves}
+        loading={newsLoading}
+        ok={news.ok}
+        windowHours={news.windowHours}
+        onRefresh={refreshNews}
+      />
 
       <MrvlHoldingsPanel
         open={holdingsOpen}

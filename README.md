@@ -111,3 +111,9 @@ stock-planner/
 - **MRVL-only:** INR price hints on rows and the holdings panel; other symbols stay USD/KRW only.
 
 No changes to ILM backend or lab flash code.
+
+### Top news
+
+Header ticker + "Top news" drawer (Marvell | Semis | Market), served by `api/news.js` (Yahoo Finance search news, Google News RSS fallback). Loads on page open and via the drawer's Refresh button only (no polling).
+
+Optional one-line "why it moved" summaries: set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` in the Vercel project env (optionally `NEWS_SUMMARY_MODEL`). Without a key, headlines only. Never commit keys.
