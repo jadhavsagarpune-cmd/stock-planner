@@ -13,6 +13,7 @@ import {
 } from './stockMarketSession.js';
 
 export const HEATMAP_BASELINE_STORAGE_KEY = 'stock-planner.heatmapBaseline';
+export const HEATMAP_BASELINE_USER_PICKED_KEY = 'stock-planner.heatmapBaselineUserPicked';
 
 /** Heatmap % reference options (independent of watchlist session column). */
 export const HEATMAP_BASELINES = [
@@ -94,22 +95,40 @@ export function heatmapBaselinePickerGroups() {
   return { session, history };
 }
 
-/** First-visit default: RTH → live, pre → pre, post/closed → post. */
+/** First-visit default: RTH → live, pre → pre, post → post, NYSE holiday → previous_close. */
 export function defaultHeatmapBaselineIdForClock(now = new Date()) {
-  if (isUsRegularSessionByClock(now)) return 'live';
   const ext = closedExtendedModeByClock(now);
+  if (ext === 'holiday') return 'previous_close';
+  if (isUsRegularSessionByClock(now)) return 'live';
   if (ext === 'pre') return 'pre';
   return 'post';
 }
 
-export function loadHeatmapBaselineId(now = new Date()) {
+export function heatmapBaselineUserPicked() {
   try {
+    return localStorage.getItem(HEATMAP_BASELINE_USER_PICKED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function loadHeatmapBaselineId(now = new Date()) {
+  const derived = defaultHeatmapBaselineIdForClock(now);
+  try {
+    const userPicked = heatmapBaselineUserPicked();
     const v = localStorage.getItem(HEATMAP_BASELINE_STORAGE_KEY);
-    if (v && HEATMAP_BASELINES.some((b) => b.id === v)) return v;
+    if (userPicked && v && HEATMAP_BASELINES.some((b) => b.id === v)) return v;
+    if (!userPicked && v !== derived) {
+      try {
+        localStorage.setItem(HEATMAP_BASELINE_STORAGE_KEY, derived);
+      } catch {
+        /* ignore */
+      }
+    }
   } catch {
     /* ignore */
   }
-  return defaultHeatmapBaselineIdForClock(now);
+  return derived;
 }
 
 function baselineSessionMode(baselineId) {
@@ -120,6 +139,7 @@ function baselineSessionMode(baselineId) {
 export function saveHeatmapBaselineId(id) {
   try {
     localStorage.setItem(HEATMAP_BASELINE_STORAGE_KEY, id);
+    localStorage.setItem(HEATMAP_BASELINE_USER_PICKED_KEY, '1');
   } catch {
     /* ignore */
   }
@@ -131,25 +151,20 @@ export function saveHeatmapBaselineId(id) {
  */
 export function heatmapBaselineMeta(baselineId, clockExtendedMode = 'regular') {
   const base = HEATMAP_BASELINES.find((b) => b.id === baselineId) ?? HEATMAP_BASELINES[0];
+  const liveBadgeClass =
+    'bg-emerald-950/80 text-emerald-300 border-emerald-600/50 ring-1 ring-emerald-500/30';
   if (base.id === 'live') {
-    const sessionMeta = heatmapSessionMeta(clockExtendedMode);
-    const sessionTitle =
-      clockExtendedMode === 'regular'
-        ? 'Live'
-        : clockExtendedMode === 'pre'
-          ? 'Pre-market'
-          : 'After Market';
-    const liveSubtitle =
-      clockExtendedMode === 'regular'
-        ? 'Regular session % vs previous close · clustered by move'
-        : clockExtendedMode === 'pre'
-          ? 'Pre-market % vs previous close · LIVE filter shows regular-session day %'
-          : 'After-hours context · LIVE filter shows regular-session day % vs prior close';
+    const rth = clockExtendedMode === 'regular';
+  const liveSubtitle = rth
+      ? 'Regular session % vs previous close · clustered by move'
+      : clockExtendedMode === 'holiday'
+        ? 'Last regular session % vs previous close · market holiday'
+        : 'Regular session day % vs previous close (session not open for live ticks)';
     return {
-      ...sessionMeta,
-      title: `Market heatmap · ${sessionTitle}`,
+      badge: 'LIVE',
+      title: rth ? 'Market heatmap · Live' : 'Market heatmap · Live (last close)',
       subtitle: liveSubtitle,
-      filterBadge: sessionMeta.badge,
+      badgeClass: liveBadgeClass,
       base,
     };
   }

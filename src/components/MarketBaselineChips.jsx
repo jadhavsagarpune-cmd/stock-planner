@@ -1,5 +1,5 @@
 import { HEATMAP_BASELINES, heatmapBaselinePickerGroups } from '../lib/heatmapBaselines';
-import { heatmapSessionMeta } from '../lib/stockMarketSession';
+import { usSessionNowPillMeta } from '../lib/stockMarketSession';
 
 const ACTIVE_THEMES = {
   violet: {
@@ -55,33 +55,42 @@ export function MarketBaselineChip({
   );
 }
 
-/** LIVE · PRE · POST */
+/** Status pill: US session now (distinct from selectable LIVE · PRE · AFTER chips). */
+export function UsSessionNowPill({ clockSession = 'regular', now = new Date(), className = '' }) {
+  const meta = usSessionNowPillMeta(clockSession, now);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-semibold tracking-wide shrink-0 ${meta.badgeClass} ${className}`}
+      title={meta.title}
+    >
+      <span className="text-slate-500 font-normal normal-case">{meta.prefix}</span>
+      <span className="font-bold tracking-wider">{meta.badge}</span>
+      {meta.detail ? (
+        <span className="text-slate-400 font-normal normal-case truncate max-w-[8rem]">
+          · {meta.detail}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** LIVE · PRE · AFTER (filter chips only — no duplicate session badge). */
 export function MarketBaselineSessionRow({
   baselineId,
   onBaselineChange,
   theme = 'violet',
-  ariaLabel = 'Market session baselines',
+  ariaLabel = 'Market session filter baselines',
   className = '',
   clockSession = 'regular',
-  showClockPill = true,
 }) {
   if (!onBaselineChange) return null;
   const { session } = heatmapBaselinePickerGroups();
-  const clockMeta = heatmapSessionMeta(clockSession);
   return (
     <div
-      className={`flex flex-wrap items-center gap-x-1.5 gap-y-1 shrink-0 ${className}`}
+      className={`flex flex-wrap items-center gap-x-1 gap-y-1 shrink-0 ${className}`}
       role="group"
       aria-label={ariaLabel}
     >
-      {showClockPill && clockSession !== 'regular' ? (
-        <span
-          className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold tracking-wider shrink-0 ${clockMeta.badgeClass}`}
-          title={`US session now · ${clockMeta.subtitle}`}
-        >
-          {clockMeta.badge}
-        </span>
-      ) : null}
       {session.map((b) => (
         <MarketBaselineChip
           key={b.id}

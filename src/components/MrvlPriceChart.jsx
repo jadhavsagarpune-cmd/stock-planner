@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MarvellMarker from './MarvellMarker';
 import {
+  defaultMrvlChartRangeIdForClock,
   DEFAULT_MRVL_CHART_RANGE_ID,
   fetchYahooChartCloses,
   mergeLivePriceIntoBars,
@@ -89,7 +90,7 @@ export default function MrvlPriceChart({
   onBaselineChange,
   mrvlDaily = null,
 }) {
-  const [rangeId, setRangeId] = useState(DEFAULT_MRVL_CHART_RANGE_ID);
+  const [rangeId, setRangeId] = useState(() => defaultMrvlChartRangeIdForClock());
   const [bars, setBars] = useState([]);
   const [chartErr, setChartErr] = useState('');
   const [chartLoading, setChartLoading] = useState(true);

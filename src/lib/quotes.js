@@ -150,13 +150,14 @@ function deriveChangePct(price, base) {
 /** Yahoo quote page uses regularMarketPreviousClose; chartPreviousClose can be stale on big-move days. */
 const CHART_PREV_MAX_DRIFT = 0.12;
 
-function resolvePreviousClose(meta, regularPrice) {
+function resolvePreviousClose(meta, regularPrice, now = new Date()) {
   const chartPrev = float(meta.chartPreviousClose);
   const metaPrev = float(meta.previousClose);
   const regMktPrev = float(meta.regularMarketPreviousClose);
   const marketState = String(meta.marketState || '').trim().toUpperCase();
   const inPre = marketState === 'PRE' || marketState === 'PREPRE';
-  const clockPre = closedExtendedModeByClock(new Date()) === 'pre';
+  const clockPre = closedExtendedModeByClock(now) === 'pre';
+  const offRth = !isUsRegularSessionByClock(now);
   const regPx = float(meta.regularMarketPrice);
   const prePx =
     float(meta.preMarketPrice)
@@ -164,7 +165,7 @@ function resolvePreviousClose(meta, regularPrice) {
 
   const isPost =
     marketState === 'POST' || marketState === 'POSTPOST' || marketState === 'CLOSED';
-  if ((inPre || clockPre) && !isPost && regPx != null && prePx != null) {
+  if ((inPre || clockPre || (offRth && marketState === 'REGULAR')) && !isPost && regPx != null && prePx != null) {
   const wirePrev = metaPrev ?? chartPrev;
   const wireLooksStale =
     wirePrev != null && regPx < wirePrev * 0.97 && Math.abs(regPx - prePx) / prePx > 0.005;
@@ -304,18 +305,19 @@ function deriveRegularChangeAbs(regularPrice, previousClose, regularChangePct, m
 /**
  * Map merged Yahoo meta → app quote row (unit-testable; used after chart + v7 merge).
  */
-export function mapYahooMetaToQuote(meta, sym, chartResult) {
+export function mapYahooMetaToQuote(meta, sym, chartResult, opts = {}) {
   const symbol = sym || meta.symbol || '';
+  const now = opts.now ?? new Date();
 
   const regMktPrevPinned = float(meta.regularMarketPreviousClose);
-  const provisionalPrev = regMktPrevPinned ?? resolvePreviousClose(meta, float(meta.regularMarketPrice));
+  const provisionalPrev = regMktPrevPinned ?? resolvePreviousClose(meta, float(meta.regularMarketPrice), now);
   const regularPrice = resolveRegularMarketPrice(meta, provisionalPrev);
   let premarketPrice = float(meta.preMarketPrice);
   let regularChangePct = yahooChangePct(float(meta.regularMarketChangePercent));
   if (regularChangePct == null) {
     regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
   }
-  const priorSessionClose = regMktPrevPinned ?? resolvePreviousClose(meta, regularPrice);
+  const priorSessionClose = regMktPrevPinned ?? resolvePreviousClose(meta, regularPrice, now);
   const displayPreviousClose = resolveDisplayPreviousClose(
     priorSessionClose,
     regularPrice,
@@ -384,7 +386,7 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     currentPrice = fulldayPrice;
   }
   const preSession = marketState === 'PRE' || marketState === 'PREPRE';
-  const clockPre = closedExtendedModeByClock(new Date()) === 'pre';
+  const clockPre = closedExtendedModeByClock(now) === 'pre';
   if (
     regularPrice != null
     && fulldayPrice != null

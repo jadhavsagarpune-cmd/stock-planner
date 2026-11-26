@@ -3,6 +3,8 @@ import {
   formatMrvlInrHint,
   formatStockPrice,
   pickExtendedQuote,
+  pickHeatmapChangePct,
+  pickHeatmapPrice,
   pickRegularMarketDisplay,
 } from '../lib/stockFormat';
 import StockPriceChangeLines from './StockPriceChangeLines';
@@ -13,13 +15,14 @@ import {
   resolveActiveSession,
   sessionHeadlineLabel,
 } from '../lib/sessionQuote';
+import { closedExtendedModeByClock, isUsRegularSessionByClock } from '../lib/stockMarketSession';
+import { pickBestQuotePrice } from '../lib/quoteResilience';
 import {
   pickHeatmapChangePctForBaseline,
   pickHeatmapPriceForBaseline,
   heatmapBaselineMeta,
 } from '../lib/heatmapBaselines';
 import { sessionModeFromBaselineId, watchlistUsesBaselinePct } from '../lib/marketViewMode';
-import { pickHeatmapChangePct, pickHeatmapPrice } from '../lib/stockFormat';
 
 function SessionColumn({
   title,
@@ -86,10 +89,25 @@ function YahooQuoteHero({
   let headlineLabel;
   let headlineSubnote = null;
 
-  if (historicalView) {
+  if (viewBaselineId === 'live') {
+    const rth = isUsRegularSessionByClock(now);
+    headlinePrice =
+      pickHeatmapPrice(quote, 'regular')
+      ?? pickActiveSessionPrice(quote, now)
+      ?? pickBestQuotePrice(quote);
+    headlinePct = pickHeatmapChangePct(quote, 'regular');
+    const dayChange = pickSessionDayChange(quote, now);
+    if (headlinePct == null) headlinePct = dayChange?.pct ?? null;
+    if (headlineAbs == null) headlineAbs = dayChange?.abs ?? null;
+    session = rth ? 'regular' : 'closed';
+    headlineLabel = rth ? 'Quote · Live' : 'Regular session (last close)';
+    headlineSubnote = rth
+      ? 'Live regular session · vs previous close'
+      : 'Last regular session close · vs previous close';
+  } else if (historicalView) {
     headlinePrice = pickHeatmapPriceForBaseline(quote, viewBaselineId, viewBaselineDaily);
     headlinePct = pickHeatmapChangePctForBaseline(quote, viewBaselineId, viewBaselineDaily);
-    const meta = heatmapBaselineMeta(viewBaselineId);
+    const meta = heatmapBaselineMeta(viewBaselineId, closedExtendedModeByClock(now));
     session = null;
     headlineLabel = `Quote · ${meta.badge}`;
     headlineSubnote = meta.subtitle;

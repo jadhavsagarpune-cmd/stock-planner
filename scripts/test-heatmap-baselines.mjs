@@ -10,6 +10,11 @@ import {
   pickHeatmapChangePctForBaseline,
   pickCurrentHeatmapPrice,
 } from '../src/lib/heatmapBaselines.js';
+import {
+  closedExtendedModeByClock,
+  isNyseFullMarketHoliday,
+} from '../src/lib/stockMarketSession.js';
+import { watchlistUsesBaselinePct } from '../src/lib/marketViewMode.js';
 
 const { session, history } = heatmapBaselinePickerGroups();
 const sessionBadges = session.map((b) => b.badge).join(',');
@@ -18,25 +23,40 @@ if (sessionBadges !== 'LIVE,PRE,AFTER') {
   process.exit(1);
 }
 
-const wedPostClose = new Date('2026-11-26T22:00:00-05:00');
+const wedPostClose = new Date('2026-11-25T22:00:00-05:00');
 if (defaultHeatmapBaselineIdForClock(wedPostClose) !== 'post') {
   console.error('FAIL default baseline after US close should be post');
   process.exit(1);
 }
-const wedPre = new Date('2026-11-26T08:00:00-05:00');
+
+const thanksgivingMorning = new Date('2026-11-26T08:00:00-05:00');
+if (!isNyseFullMarketHoliday(thanksgivingMorning)) {
+  console.error('FAIL Thanksgiving should be full market holiday');
+  process.exit(1);
+}
+if (closedExtendedModeByClock(thanksgivingMorning) !== 'holiday') {
+  console.error('FAIL clock mode on Thanksgiving');
+  process.exit(1);
+}
+if (defaultHeatmapBaselineIdForClock(thanksgivingMorning) !== 'previous_close') {
+  console.error('FAIL holiday default baseline should be previous_close');
+  process.exit(1);
+}
+
+const wedPre = new Date('2026-11-25T08:00:00-05:00');
 if (defaultHeatmapBaselineIdForClock(wedPre) !== 'pre') {
   console.error('FAIL default baseline pre-market should be pre');
   process.exit(1);
 }
-const wedRth = new Date('2026-11-26T12:00:00-05:00');
+const wedRth = new Date('2026-11-25T12:00:00-05:00');
 if (defaultHeatmapBaselineIdForClock(wedRth) !== 'live') {
   console.error('FAIL default baseline RTH should be live');
   process.exit(1);
 }
 
 const liveMetaClosed = heatmapBaselineMeta('live', 'post');
-if (liveMetaClosed.badge !== 'AFTER' || liveMetaClosed.filterBadge !== 'AFTER') {
-  console.error('FAIL live filter badge during after-hours', liveMetaClosed);
+if (liveMetaClosed.badge !== 'LIVE') {
+  console.error('FAIL live filter badge should stay LIVE when selected', liveMetaClosed);
   process.exit(1);
 }
 if (session[0]?.id !== 'live') {
@@ -131,6 +151,11 @@ const pctOnly = {
 const prevFromPct = pickHeatmapChangePctForBaseline(pctOnly, 'previous_close', null);
 if (prevFromPct == null || Math.abs(prevFromPct - 1.5) > 0.01) {
   console.error('FAIL PREV falls back to regular_change_pct', prevFromPct);
+  process.exit(1);
+}
+
+if (watchlistUsesBaselinePct('live')) {
+  console.error('FAIL LIVE baseline must not use historical hero path');
   process.exit(1);
 }
 

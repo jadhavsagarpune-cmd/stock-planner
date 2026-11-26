@@ -2,8 +2,10 @@ import { isDisplayablePrice } from './quoteResilience.js';
 import { deriveExtendedChangeAbs, deriveRegularChangeAbsFromRow } from './stockFormat.js';
 import {
   closedExtendedModeByClock,
+  isNyseFullMarketHoliday,
   isUsRegularSessionByClock,
   normalizeMarketState,
+  nyseHolidayLabel,
 } from './stockMarketSession.js';
 
 function float(v) {
@@ -20,10 +22,11 @@ function priceFloat(v) {
 /** PRE | REG | POST | CLOSED for UI chip (Yahoo metadata + US clock fallback). */
 export function marketStatusChip(quote, now = new Date()) {
   if (!quote) return 'CLOSED';
+  if (isNyseFullMarketHoliday(now)) return 'CLOSED';
   const state = normalizeMarketState(quote.market_state);
   const clockRegular = isUsRegularSessionByClock(now);
 
-  if (state === 'PRE') return 'PRE';
+  if (state === 'PRE' && !isNyseFullMarketHoliday(now)) return 'PRE';
   if (state === 'POST') return 'POST';
 
   if (state === 'REGULAR') {
@@ -94,6 +97,10 @@ export function pickActiveSessionPrice(quote, now = new Date()) {
 /** User-facing headline label — one session name only (chip carries PRE/REG/POST). */
 export function sessionHeadlineLabel(quote, now = new Date()) {
   if (!quote) return 'Price';
+  if (isNyseFullMarketHoliday(now)) {
+    const hol = nyseHolidayLabel(now);
+    return hol ? `Market closed · ${hol}` : 'Market closed';
+  }
   const session = resolveActiveSession(quote, now);
   if (session === 'pre') return 'Pre-market';
   if (session === 'post') return 'After Market';

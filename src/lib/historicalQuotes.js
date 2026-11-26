@@ -4,6 +4,7 @@ import {
   putDailyBars,
 } from './priceHistoryStore';
 import { mergeLivePriceIntoBars, pickLiveChartPrice } from './chartLiveMerge';
+import { isUsRegularSessionByClock } from './stockMarketSession.js';
 
 export { mergeLivePriceIntoBars, pickLiveChartPrice };
 
@@ -41,6 +42,11 @@ export const MRVL_CHART_RANGES = [
 ];
 
 export const DEFAULT_MRVL_CHART_RANGE_ID = 'LIVE';
+
+/** Chart default: LIVE during RTH; otherwise 1D (no intraday “live” bar merge). */
+export function defaultMrvlChartRangeIdForClock(now = new Date()) {
+  return isUsRegularSessionByClock(now) ? 'LIVE' : '1D';
+}
 
 /** Primary chart chip row (scroll on narrow screens); longer ranges omitted from hero row. */
 export const MRVL_CHART_CHIP_IDS = ['LIVE', '1D', '5D', '7D', '1M', '3M', 'YTD'];

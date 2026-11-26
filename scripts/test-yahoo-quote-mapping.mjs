@@ -105,7 +105,8 @@ const MRVL_LIVE_SHAPED = {
   preMarketChange: -13.24,
   currentPrice: 132.3,
 };
-const livePrev = resolvePreviousClose(MRVL_LIVE_SHAPED, 138.47);
+const preMorningEt = new Date('2026-11-25T08:00:00-05:00');
+const livePrev = resolvePreviousClose(MRVL_LIVE_SHAPED, 138.47, preMorningEt);
 if (livePrev == null || Math.abs(livePrev - 138.47) > 0.02) {
   console.error('FAIL MRVL live-shaped prior must be regularMarketPrice 138.47', { livePrev });
   process.exit(1);
@@ -119,7 +120,7 @@ if (Math.abs(v7Prev - 138.47) > 0.02) {
   console.error('FAIL v7 regularMarketPreviousClose must pin prior', v7Prev);
   process.exit(1);
 }
-const liveQuote = mapYahooMetaToQuote(MRVL_V7_MERGED, 'MRVL');
+const liveQuote = mapYahooMetaToQuote(MRVL_V7_MERGED, 'MRVL', undefined, { now: preMorningEt });
 const livePrePct = ((132.3 - 138.47) / 138.47) * 100;
 if (Math.abs(liveQuote.premarket_change_pct - livePrePct) > 0.15) {
   console.error('FAIL MRVL pre % vs 138.47', liveQuote.premarket_change_pct, livePrePct);

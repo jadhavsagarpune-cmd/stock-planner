@@ -26,11 +26,13 @@ export function resolveWatchlistExtendedMode(baselineId, clockExtendedMode) {
   const forced = sessionModeFromBaselineId(baselineId);
   if (forced === 'pre') return 'pre';
   if (forced === 'post') return 'post';
+  if (clockExtendedMode === 'holiday') return 'holiday';
   return clockExtendedMode;
 }
 
 /** Whether watchlist %/price in the active column come from heatmap baseline math. */
 export function watchlistUsesBaselinePct(baselineId) {
+  if (baselineId === 'live') return false;
   return !isSessionBaselineId(baselineId);
 }
 

@@ -23,6 +23,9 @@ import MrvlHoldingsPanel from './components/MrvlHoldingsPanel';
 import { clearLegacyMrvlSharesStorage } from './lib/holdingsStorage';
 import {
   baselineNeedsDailyHistory,
+  defaultHeatmapBaselineIdForClock,
+  HEATMAP_BASELINE_STORAGE_KEY,
+  heatmapBaselineUserPicked,
   loadHeatmapBaselineId,
   saveHeatmapBaselineId,
 } from './lib/heatmapBaselines';
@@ -157,6 +160,19 @@ export default function App() {
     saveHeatmapBaselineId(id);
     setHeatmapBaseline(id);
   }, []);
+
+  useEffect(() => {
+    if (heatmapBaselineUserPicked()) return;
+    const derived = defaultHeatmapBaselineIdForClock();
+    if (derived !== heatmapBaseline) {
+      setHeatmapBaseline(derived);
+      try {
+        localStorage.setItem(HEATMAP_BASELINE_STORAGE_KEY, derived);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [heatmapBaseline]);
 
   useEffect(() => {
     refreshAll();

@@ -56,9 +56,11 @@ function mockSvgLetterbox({ contentOffsetX = 80, chartW = 640 }) {
   };
 }
 
+const rthWed = new Date('2026-11-25T15:00:00-05:00');
+const rthMs = rthWed.getTime();
 const yBars = [
-  { t: Date.now() - 2 * 86_400_000, close: 78 },
-  { t: Date.now() - 86_400_000, close: 79 },
+  { t: rthMs - 2 * 86_400_000, close: 78 },
+  { t: rthMs - 86_400_000, close: 79 },
 ];
 
 const quote = {
@@ -67,12 +69,12 @@ const quote = {
   market_state: 'REGULAR',
 };
 
-if (pickLiveChartPrice(quote) !== 80.75) {
+if (pickLiveChartPrice(quote, rthWed) !== 80.75) {
   console.error('FAIL pickLiveChartPrice prefers current');
   process.exit(1);
 }
 
-const mergedDaily = mergeLivePriceIntoBars(yBars, quote, { interval: '1d' });
+const mergedDaily = mergeLivePriceIntoBars(yBars, quote, { interval: '1d', now: rthWed });
 if (mergedDaily.length !== 3 || mergedDaily[2].close !== 80.75) {
   console.error('FAIL daily append today', mergedDaily);
   process.exit(1);
@@ -81,7 +83,7 @@ if (mergedDaily.length !== 3 || mergedDaily[2].close !== 80.75) {
 const intraBars = [
   { t: Date.now() - 5 * 60 * 1000, close: 79.9 },
 ];
-const mergedIntra = mergeLivePriceIntoBars(intraBars, quote, { interval: '15m' });
+const mergedIntra = mergeLivePriceIntoBars(intraBars, quote, { interval: '15m', now: rthWed });
 if (mergedIntra.length !== 1 || mergedIntra[0].close !== 80.75) {
   console.error('FAIL intraday update bucket', mergedIntra);
   process.exit(1);
@@ -90,7 +92,7 @@ if (mergedIntra.length !== 1 || mergedIntra[0].close !== 80.75) {
 const merged1d = mergeLivePriceIntoBars(
   [{ t: Date.now() - 3 * 60 * 1000, close: 79.95 }],
   quote,
-  { interval: '5m' },
+  { interval: '5m', now: rthWed },
 );
 if (merged1d.length !== 1 || merged1d[0].close !== 80.75) {
   console.error('FAIL 1D 5m update bucket', merged1d);
@@ -105,6 +107,7 @@ if (
   !histSrc.includes("id: 'LIVE'")
   || !/^\s*\{ id: '1D', label: '1D', range: '1d', interval: '5m' \},/m.test(histSrc)
   || !histSrc.includes("export const DEFAULT_MRVL_CHART_RANGE_ID = 'LIVE';")
+  || !histSrc.includes('defaultMrvlChartRangeIdForClock')
   || !histSrc.includes("export const MRVL_CHART_CHIP_IDS = ['LIVE', '1D',")
 ) {
   console.error('FAIL LIVE / 1D range chips / default in historicalQuotes.js');

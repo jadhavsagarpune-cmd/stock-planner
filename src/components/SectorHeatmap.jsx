@@ -6,7 +6,11 @@ import {
   heatmapBaselineMeta,
   pickHeatmapChangePctForBaseline,
 } from '../lib/heatmapBaselines';
-import { MarketBaselineHistoryRow, MarketBaselineSessionRow } from './MarketBaselineChips';
+import {
+  MarketBaselineHistoryRow,
+  MarketBaselineSessionRow,
+  UsSessionNowPill,
+} from './MarketBaselineChips';
 import { MARVELL_ACCENT_RING, isMarvellCompany } from '../lib/marvellBrand';
 import { MarvellTickerBadge } from './MarvellMarker';
 
@@ -168,9 +172,11 @@ export default function SectorHeatmap({
             </h2>
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold tracking-wider shrink-0 ${session.badgeClass}`}
+              title="Selected baseline filter"
             >
               {session.badge}
             </span>
+            <UsSessionNowPill clockSession={extendedMode} />
             <MarketBaselineSessionRow
               baselineId={baselineId}
               onBaselineChange={onBaselineChange}

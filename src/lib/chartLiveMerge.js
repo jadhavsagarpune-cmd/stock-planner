@@ -32,30 +32,30 @@ export { pickActiveSessionPrice, pickLiveChartPrice } from './sessionQuote.js';
  * Extend the series through the active session using the polled quote (chart fetch is range-static).
  * @param {{ t: number, close: number }[]} bars
  */
-export function mergeLivePriceIntoBars(bars, quote, { interval = '1d' } = {}) {
+export function mergeLivePriceIntoBars(bars, quote, { interval = '1d', now = new Date() } = {}) {
   if (!bars?.length) return bars ?? [];
-  const price = pickLiveChartPrice(quote);
+  const price = pickLiveChartPrice(quote, now);
   if (price == null) return bars;
 
-  const now = Date.now();
+  const nowMs = now instanceof Date ? now.getTime() : Number(now) || Date.now();
   const out = bars.slice();
   const last = out[out.length - 1];
   const daily = interval === '1d' || interval === '1wk';
 
   if (daily) {
-    if (usDateKey(last.t) === usDateKey(now)) {
+    if (usDateKey(last.t) === usDateKey(nowMs)) {
       out[out.length - 1] = { ...last, close: price };
     } else {
-      out.push({ t: now, close: price });
+      out.push({ t: nowMs, close: price });
     }
     return out;
   }
 
   const bucket = INTERVAL_MS[interval] ?? INTERVAL_MS['15m'];
-  if (now - last.t <= bucket * 1.25) {
+  if (nowMs - last.t <= bucket * 1.25) {
     out[out.length - 1] = { ...last, close: price };
   } else {
-    out.push({ t: now, close: price });
+    out.push({ t: nowMs, close: price });
   }
   return out;
 }

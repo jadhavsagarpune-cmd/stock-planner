@@ -1,5 +1,6 @@
 import {
   closedExtendedModeByClock,
+  isNyseFullMarketHoliday,
   isUsRegularSessionByClock,
   normalizeMarketState,
 } from './stockMarketSession.js';
@@ -212,6 +213,17 @@ export function pickRegularMarketDisplay(it, now = new Date()) {
     return { price, pct, abs, live: true };
   }
 
+  if (!isKrx && isNyseFullMarketHoliday(now)) {
+    const price = it.regular_price ?? it.previous_close;
+    if (!isDisplayablePrice(price)) return null;
+    return {
+      price: Number(price),
+      pct: it.regular_change_pct,
+      abs: deriveRegularChangeAbsFromRow(it),
+      live: false,
+    };
+  }
+
   const clockPre = !isKrx && closedExtendedModeByClock(now) === 'pre';
   const yahooPre = state === 'PRE';
   const inUsPre = clockPre || yahooPre;
@@ -253,8 +265,11 @@ export function pickHeatmapPrice(it, sessionMode) {
   if (!it || it.status !== 'done') return null;
   const sym = String(it.name || '').trim().toUpperCase();
   if (sym.endsWith('.KS') || sessionMode === 'regular') {
-    const p = it.regular_price;
-    return p == null || Number.isNaN(Number(p)) ? null : Number(p);
+    const candidates = [it.regular_price, it.previous_close, it.current_price, it.fullday_price];
+    for (const p of candidates) {
+      if (isDisplayablePrice(p)) return Number(p);
+    }
+    return null;
   }
   const ext = pickExtendedQuote(it, sessionMode);
   const price = ext?.price ?? it.regular_price;
