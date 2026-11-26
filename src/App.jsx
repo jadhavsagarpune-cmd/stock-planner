@@ -31,8 +31,10 @@ import {
 } from './lib/heatmapBaselines';
 import { prefetchDailyBarsForSymbols } from './lib/historicalQuotes';
 import {
+  formatStaleCacheLabel,
   getLatestSnapshot,
   loadLastGoodQuote,
+  loadLastGoodQuoteWithMeta,
   quoteFromSnapshot,
   recordQuoteSnapshots,
   saveLastGoodQuote,
@@ -52,10 +54,15 @@ export default function App() {
     return quoteIsRenderable(cached) ? cached : null;
   });
   const [mrvlErr, setMrvlErr] = useState('');
+  const [mrvlStaleLabel, setMrvlStaleLabel] = useState(() => {
+    const meta = loadLastGoodQuoteWithMeta('MRVL');
+    return meta?.savedAt ? formatStaleCacheLabel(meta.savedAt) : '';
+  });
   const [usdInr, setUsdInr] = useState(null);
   const [usdInrErr, setUsdInrErr] = useState('');
   const [notifyOn, setNotifyOn] = useState(() => getDesktopNotificationsEnabled());
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [quotesBanner, setQuotesBanner] = useState('');
   const [holdingsOpen, setHoldingsOpen] = useState(false);
   const [etfBenchmarks, setEtfBenchmarks] = useState(null);
   const [heatmapBaseline, setHeatmapBaseline] = useState(() => loadHeatmapBaselineId());
@@ -63,11 +70,19 @@ export default function App() {
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
+    setQuotesBanner('');
     try {
       const [list, etfs] = await Promise.all([
         fetchWatchlistQuotes(ALL_WATCHLIST_ENTRIES, setItems),
         fetchEtfBenchmarks(),
       ]);
+      const failed = list.filter((i) => i.status === 'failed').length;
+      const done = list.filter((i) => i.status === 'done').length;
+      if (failed && done === 0) {
+        setQuotesBanner('Live quotes unavailable (Yahoo may be rate-limiting). Retrying uses cache and Stooq fallback where possible.');
+      } else if (failed > 0) {
+        setQuotesBanner(`${failed} symbol(s) could not be refreshed — tiles show — until the next successful fetch.`);
+      }
       setEtfBenchmarks(etfs);
       setLastRefresh(new Date());
       void recordQuoteSnapshots(list);
@@ -96,6 +111,7 @@ export default function App() {
       if (!quoteIsRenderable(q)) throw new Error('No quote data');
       setMrvl(q);
       setMrvlErr('');
+      setMrvlStaleLabel('');
       saveLastGoodQuote('MRVL', q);
       if (notifyOn) {
         notifyStockMoveIfNeeded({
@@ -112,10 +128,11 @@ export default function App() {
           recovered = true;
           return prev;
         }
-        const fromLs = loadLastGoodQuote('MRVL');
-        if (quoteIsRenderable(fromLs)) {
+        const fromLsMeta = loadLastGoodQuoteWithMeta('MRVL');
+        if (quoteIsRenderable(fromLsMeta?.quote)) {
           recovered = true;
-          return fromLs;
+          if (fromLsMeta.savedAt) setMrvlStaleLabel(formatStaleCacheLabel(fromLsMeta.savedAt));
+          return fromLsMeta.quote;
         }
         return prev;
       });
@@ -123,7 +140,10 @@ export default function App() {
         try {
           const snap = await getLatestSnapshot('MRVL');
           const fromIdb = quoteFromSnapshot(snap);
-          if (quoteIsRenderable(fromIdb)) setMrvl(fromIdb);
+          if (quoteIsRenderable(fromIdb)) {
+            setMrvl(fromIdb);
+            setMrvlStaleLabel(formatStaleCacheLabel(snap?.ts));
+          }
         } catch {
           /* IndexedDB optional */
         }
@@ -289,6 +309,18 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {quotesBanner ? (
+        <p className="text-[11px] text-amber-300/95 mb-2 rounded-lg border border-amber-500/30 bg-amber-950/25 px-3 py-2" role="alert">
+          {quotesBanner}
+        </p>
+      ) : null}
+
+      {mrvlStaleLabel ? (
+        <p className="text-[11px] text-amber-400/90 mb-2 -mt-1" role="status">
+          MRVL price is {mrvlStaleLabel} — live Yahoo/Stooq fetch failed; showing last good quote.
+        </p>
+      ) : null}
 
       <MrvlPriceChart
         mrvl={mrvl}

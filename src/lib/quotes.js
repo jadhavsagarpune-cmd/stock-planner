@@ -1,5 +1,10 @@
 import { closedExtendedModeByClock, isUsRegularSessionByClock } from './stockMarketSession.js';
 import { quoteIsRenderable, sanitizeQuotePrices } from './quoteResilience.js';
+import {
+  CLIENT_FETCH_TIMEOUT_MS,
+  clientFetchTimeout,
+  mergeAbortSignals,
+} from './fetchTimeout.js';
 
 const YAHOO_HOSTS = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
@@ -65,6 +70,18 @@ function quoteSummaryFetchUrl(symbol) {
   return `/api/quote-summary?symbol=${encodeURIComponent(sym)}`;
 }
 
+function quotesBatchFetchUrl(symbols) {
+  const list = symbols.map((s) => String(s).trim().toUpperCase()).filter(Boolean);
+  if (import.meta.env?.DEV || typeof window === 'undefined') return null;
+  return `/api/quotes-batch?symbols=${encodeURIComponent(list.join(','))}`;
+}
+
+function effectiveSignal(outerSignal) {
+  const { signal: timeoutSig, clear } = clientFetchTimeout(CLIENT_FETCH_TIMEOUT_MS);
+  const merged = mergeAbortSignals(outerSignal, timeoutSig);
+  return { signal: merged, clear };
+}
+
 function summaryFetchTargets(sym) {
   const useProxy = !import.meta.env?.DEV && typeof window !== 'undefined';
   if (useProxy) {
@@ -77,25 +94,31 @@ function summaryFetchTargets(sym) {
 async function fetchYahooQuoteSummaryRow(symbol, { signal } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
+  const { signal: sig, clear } = effectiveSignal(signal);
   const targets = summaryFetchTargets(sym);
-  for (const url of targets) {
-    try {
-      const resp = await fetch(url, { headers: HEADERS, signal });
-      if (!resp.ok) continue;
-      const payload = await resp.json();
-      const rows = payload?.quoteResponse?.result;
-      if (!Array.isArray(rows) || !rows.length) continue;
-      return rows[0];
-    } catch {
-      /* try next host */
+  try {
+    for (const url of targets) {
+      try {
+        const resp = await fetch(url, { headers: HEADERS, signal: sig });
+        if (!resp.ok) continue;
+        const payload = await resp.json();
+        const rows = payload?.quoteResponse?.result;
+        if (!Array.isArray(rows) || !rows.length) continue;
+        return rows[0];
+      } catch {
+        /* try next host */
+      }
     }
+    return null;
+  } finally {
+    clear();
   }
-  return null;
 }
 
 async function fetchYahooChartResponse(symbol, { signal } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
+  const { signal: sig, clear } = effectiveSignal(signal);
   const useProxy = !import.meta.env?.DEV && typeof window !== 'undefined';
   const chartPath = `/v8/finance/chart/${encodeURIComponent(sym)}?${CHART_QS}`;
   const targets = useProxy
@@ -103,17 +126,21 @@ async function fetchYahooChartResponse(symbol, { signal } = {}) {
     : YAHOO_HOSTS.map((host) => `https://${host}${chartPath}`);
 
   let lastResp = null;
-  for (const url of targets) {
-    try {
-      const resp = await fetch(url, { headers: HEADERS, signal });
-      lastResp = resp;
-      if (resp.ok) return resp;
-      if (!RETRY_HTTP_STATUSES.has(resp.status)) return resp;
-    } catch {
-      /* next */
+  try {
+    for (const url of targets) {
+      try {
+        const resp = await fetch(url, { headers: HEADERS, signal: sig });
+        lastResp = resp;
+        if (resp.ok) return resp;
+        if (!RETRY_HTTP_STATUSES.has(resp.status)) return resp;
+      } catch {
+        /* next */
+      }
     }
+    return lastResp;
+  } finally {
+    clear();
   }
-  return lastResp;
 }
 
 /** Overlay v7 quote fields onto chart meta (quote wins for session prices). */
@@ -465,6 +492,19 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     fetchYahooChartResponse(sym, { signal }),
     fetchYahooQuoteSummaryRow(sym, { signal }),
   ]);
+  let quote = await buildQuoteFromChartAndSummary(sym, chartResp, summaryRow);
+  if (quoteIsRenderable(quote)) return quote;
+  if (!summaryRow) {
+    const retrySummary = await fetchYahooQuoteSummaryRow(sym, { signal });
+    quote = await buildQuoteFromChartAndSummary(sym, chartResp, retrySummary);
+    if (quoteIsRenderable(quote)) return quote;
+  }
+  if (chartResp?.ok === false) throw new Error(`Yahoo HTTP ${chartResp.status}`);
+  if (chartResp == null) throw new Error('Yahoo HTTP 500');
+  throw new Error('No quote data');
+}
+
+async function buildQuoteFromChartAndSummary(sym, chartResp, summaryRow) {
   let quote = null;
   if (chartResp?.ok) {
     const payload = await chartResp.json();
@@ -479,15 +519,112 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
     const meta = mergeQuoteSummaryIntoMeta(chartMeta, summaryRow);
     quote = mapYahooMetaToQuote(meta, sym, quote?.chart_result ?? null);
   }
-  if (quoteIsRenderable(quote)) return quote;
-  if (chartResp?.ok === false) throw new Error(`Yahoo HTTP ${chartResp.status}`);
-  if (chartResp == null) throw new Error('Yahoo HTTP 500');
-  throw new Error('No quote data');
+  return quote;
 }
 
-const MAX_PARALLEL = 4;
+function watchlistRowFromQuote(label, symbol, quote) {
+  const q = sanitizeQuotePrices(quote);
+  return {
+    name: symbol,
+    label,
+    status: 'done',
+    currency: q.currency,
+    previous_close: q.previous_close,
+    regular_price: q.regular_price,
+    regular_change_abs: q.regular_change_abs,
+    regular_change_pct: q.regular_change_pct,
+    premarket_price: q.premarket_price,
+    premarket_change_pct: q.premarket_change_pct,
+    premarket_change_abs: q.premarket_change_abs,
+    postmarket_price: q.postmarket_price,
+    postmarket_change_pct: q.postmarket_change_pct,
+    postmarket_change_abs: q.postmarket_change_abs,
+    current_price: q.current_price,
+    fullday_price: q.fullday_price,
+    market_state: q.market_state,
+    exchange: q.exchange,
+  };
+}
+
+async function fetchWatchlistViaBatch(entries, onProgress) {
+  const symbols = entries.map(([, s]) => String(s).trim().toUpperCase());
+  const batchUrl = quotesBatchFetchUrl(symbols);
+  if (!batchUrl) return null;
+  const items = entries.map(([label, symbol]) => ({
+    name: symbol,
+    label,
+    status: 'pending',
+  }));
+  onProgress?.([...items]);
+  const { signal, clear } = clientFetchTimeout(Math.max(CLIENT_FETCH_TIMEOUT_MS, 25_000));
+  try {
+    const resp = await fetch(batchUrl, { headers: HEADERS, signal });
+    if (!resp.ok) return null;
+    const payload = await resp.json();
+    const rows = payload?.quoteResponse?.result;
+    if (!Array.isArray(rows) || !rows.length) return null;
+    const bySym = new Map();
+    for (const row of rows) {
+      const sym = String(row?.symbol || '').trim().toUpperCase();
+      if (sym) bySym.set(sym, row);
+    }
+    for (let i = 0; i < entries.length; i += 1) {
+      const [label, symbol] = entries[i];
+      const sym = String(symbol).trim().toUpperCase();
+      const row = bySym.get(sym);
+      if (!row) {
+        items[i] = { name: symbol, label, status: 'failed', error: 'No batch row' };
+        continue;
+      }
+      try {
+        const quote = mapYahooMetaToQuote(row, sym, null);
+        if (!quoteIsRenderable(quote)) throw new Error('No quote data');
+        items[i] = watchlistRowFromQuote(label, symbol, quote);
+      } catch (ex) {
+        items[i] = {
+          name: symbol,
+          label,
+          status: 'failed',
+          error: String(ex.message || ex),
+        };
+      }
+      onProgress?.([...items]);
+    }
+    return items;
+  } catch {
+    return null;
+  } finally {
+    clear();
+  }
+}
+
+const MAX_PARALLEL = 3;
 
 export async function fetchWatchlistQuotes(entries, onProgress) {
+  const batched = await fetchWatchlistViaBatch(entries, onProgress);
+  if (batched) {
+    const failedIdx = batched
+      .map((it, i) => (it.status === 'failed' ? i : -1))
+      .filter((i) => i >= 0);
+    if (!failedIdx.length) return batched;
+    for (const i of failedIdx) {
+      const [label, symbol] = entries[i];
+      try {
+        const quote = sanitizeQuotePrices(await fetchYahooQuote(symbol));
+        batched[i] = watchlistRowFromQuote(label, symbol, quote);
+      } catch (ex) {
+        batched[i] = {
+          name: symbol,
+          label,
+          status: 'failed',
+          error: String(ex.message || ex),
+        };
+      }
+      onProgress?.([...batched]);
+    }
+    return batched;
+  }
+
   const items = entries.map(([label, symbol]) => ({
     name: symbol,
     label,
@@ -503,26 +640,7 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
       const [label, symbol] = entries[i];
       try {
         const quote = sanitizeQuotePrices(await fetchYahooQuote(symbol));
-        items[i] = {
-          name: symbol,
-          label,
-          status: 'done',
-          currency: quote.currency,
-          previous_close: quote.previous_close,
-          regular_price: quote.regular_price,
-          regular_change_abs: quote.regular_change_abs,
-          regular_change_pct: quote.regular_change_pct,
-          premarket_price: quote.premarket_price,
-          premarket_change_pct: quote.premarket_change_pct,
-          premarket_change_abs: quote.premarket_change_abs,
-          postmarket_price: quote.postmarket_price,
-          postmarket_change_pct: quote.postmarket_change_pct,
-          postmarket_change_abs: quote.postmarket_change_abs,
-          current_price: quote.current_price,
-          fullday_price: quote.fullday_price,
-          market_state: quote.market_state,
-          exchange: quote.exchange,
-        };
+        items[i] = watchlistRowFromQuote(label, symbol, quote);
       } catch (ex) {
         items[i] = {
           name: symbol,

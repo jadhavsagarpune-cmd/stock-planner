@@ -23,6 +23,19 @@ export function sanitizeQuotePrices(quote) {
   for (const key of priceKeys) {
     if (key in out && !isDisplayablePrice(out[key])) out[key] = null;
   }
+  const hasAnyPrice =
+    isDisplayablePrice(out.regular_price)
+    || isDisplayablePrice(out.previous_close)
+    || isDisplayablePrice(out.postmarket_price)
+    || isDisplayablePrice(out.premarket_price)
+    || isDisplayablePrice(out.current_price)
+    || isDisplayablePrice(out.fullday_price);
+  if (!hasAnyPrice) {
+    out.regular_change_pct = null;
+    out.regular_change_abs = null;
+    out.premarket_change_pct = null;
+    out.postmarket_change_pct = null;
+  }
   return out;
 }
 

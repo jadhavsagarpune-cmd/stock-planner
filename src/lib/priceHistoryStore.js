@@ -138,6 +138,12 @@ export function saveLastGoodQuote(symbol, quote) {
 }
 
 export function loadLastGoodQuote(symbol) {
+  const meta = loadLastGoodQuoteWithMeta(symbol);
+  return meta?.quote ?? null;
+}
+
+/** @returns {{ quote: object, savedAt: number } | null} */
+export function loadLastGoodQuoteWithMeta(symbol) {
   if (typeof localStorage === 'undefined') return null;
   const sym = String(symbol || '').trim().toUpperCase();
   try {
@@ -145,10 +151,21 @@ export function loadLastGoodQuote(symbol) {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     const clean = sanitizeQuotePrices(parsed?.quote ?? null);
-    return quoteIsRenderable(clean) ? clean : null;
+    if (!quoteIsRenderable(clean)) return null;
+    return {
+      quote: clean,
+      savedAt: Number(parsed?.savedAt) || 0,
+    };
   } catch {
     return null;
   }
+}
+
+export function formatStaleCacheLabel(savedAt) {
+  if (!savedAt) return 'stale (cached)';
+  const d = new Date(savedAt);
+  const hh = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `stale (cached ${hh})`;
 }
 
 /** Rehydrate a minimal quote row from an IndexedDB snapshot. */

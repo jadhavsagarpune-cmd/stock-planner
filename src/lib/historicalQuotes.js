@@ -5,6 +5,7 @@ import {
 } from './priceHistoryStore';
 import { mergeLivePriceIntoBars, pickLiveChartPrice } from './chartLiveMerge';
 import { isUsRegularSessionByClock } from './stockMarketSession.js';
+import { clientFetchTimeout, mergeAbortSignals, CLIENT_FETCH_TIMEOUT_MS } from './fetchTimeout.js';
 
 export { mergeLivePriceIntoBars, pickLiveChartPrice };
 
@@ -114,21 +115,27 @@ export async function fetchYahooChartCloses(
     ? [chartHistoryUrl(sym, range, interval)]
     : YAHOO_HOSTS.map((host) => `https://${host}${chartPath}`);
 
+  const { signal: timeoutSig, clear } = clientFetchTimeout(CLIENT_FETCH_TIMEOUT_MS);
+  const sig = mergeAbortSignals(signal, timeoutSig);
   let lastStatus = 0;
-  for (const url of targets) {
-    try {
-      const resp = await fetch(url, { headers: HEADERS, signal });
-      lastStatus = resp.status;
-      if (resp.ok) {
-        const payload = await resp.json();
-        return parseYahooChartClosesPayload(payload);
+  try {
+    for (const url of targets) {
+      try {
+        const resp = await fetch(url, { headers: HEADERS, signal: sig });
+        lastStatus = resp.status;
+        if (resp.ok) {
+          const payload = await resp.json();
+          return parseYahooChartClosesPayload(payload);
+        }
+        if (!RETRY_HTTP_STATUSES.has(resp.status)) break;
+      } catch {
+        /* next host */
       }
-      if (!RETRY_HTTP_STATUSES.has(resp.status)) break;
-    } catch {
-      /* next host */
     }
+    throw new Error(`Yahoo HTTP ${lastStatus || 500}`);
+  } finally {
+    clear();
   }
-  throw new Error(`Yahoo HTTP ${lastStatus || 500}`);
 }
 
 /** @returns {Promise<{ t: number, close: number }[]>} */

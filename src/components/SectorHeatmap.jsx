@@ -105,7 +105,11 @@ function HeatmapTile({ sym, label, it, pct, baselineId, daily, clockExtendedMode
         <span className="text-slate-200 font-semibold">{sym.replace('.KS', '')}</span>
       )}
       <span className={`scale-90 ${marvell ? 'text-amber-200/80' : 'text-slate-400'}`}>
-        {it?.status === 'done' ? formatChangePct(pct) ?? '—' : '…'}
+        {it?.status === 'done'
+          ? formatChangePct(pct) ?? '—'
+          : it?.status === 'failed'
+            ? '—'
+            : '…'}
       </span>
     </a>
   );

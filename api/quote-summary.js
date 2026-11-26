@@ -1,4 +1,4 @@
-import { yahooFetch } from './_yahooUpstream.js';
+import { yahooFetch, fetchStooqQuoteMeta } from './_yahooUpstream.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -18,17 +18,41 @@ export default async function handler(req, res) {
 
   try {
     const upstream = await yahooFetch(path);
-    if (!upstream?.ok) {
-      res.status(upstream?.status || 502).json({
-        error: `Yahoo HTTP ${upstream?.status || 502}`,
-        quoteResponse: { result: [] },
+    if (upstream?.ok) {
+      const payload = await upstream.json();
+      const row = payload?.quoteResponse?.result?.[0];
+      if (row) {
+        res.setHeader('X-Quote-Source', 'yahoo_v7');
+        res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=45');
+        res.status(200).json(payload);
+        return;
+      }
+    }
+    const stooqMeta = await fetchStooqQuoteMeta(symbol);
+    if (stooqMeta) {
+      res.setHeader('X-Quote-Source', 'stooq');
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+      res.status(200).json({
+        quoteResponse: { result: [stooqMeta] },
+        _source: 'stooq',
       });
       return;
     }
-    const payload = await upstream.json();
-    res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=45');
-    res.status(200).json(payload);
+    res.status(upstream?.status || 502).json({
+      error: `Yahoo HTTP ${upstream?.status || 502}`,
+      quoteResponse: { result: [] },
+    });
   } catch (err) {
+    const stooqMeta = await fetchStooqQuoteMeta(symbol);
+    if (stooqMeta) {
+      res.setHeader('X-Quote-Source', 'stooq');
+      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
+      res.status(200).json({
+        quoteResponse: { result: [stooqMeta] },
+        _source: 'stooq',
+      });
+      return;
+    }
     res.status(502).json({ error: String(err?.message || err) });
   }
 }

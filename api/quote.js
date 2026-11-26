@@ -1,4 +1,4 @@
-import { yahooFetch } from './_yahooUpstream.js';
+import { yahooFetch, yahooChartOrFallback } from './_yahooUpstream.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -21,40 +21,43 @@ export default async function handler(req, res) {
   const path = `/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${encodeURIComponent(interval)}&range=${encodeURIComponent(range)}&includePrePost=true`;
 
   try {
-    let upstream = await yahooFetch(path);
     let payload = null;
+    let source = 'yahoo';
+
+    const upstream = await yahooFetch(path);
     if (upstream?.ok) {
       payload = await upstream.json();
-    } else {
-      const v7Path = `/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
-      const v7 = await yahooFetch(v7Path);
-      if (v7?.ok) {
-        const v7Json = await v7.json();
-        const row = v7Json?.quoteResponse?.result?.[0];
-        if (row) {
-          payload = {
-            chart: {
-              result: [
-                {
-                  meta: row,
-                  timestamp: [],
-                  indicators: { quote: [{ close: [], open: [], high: [], low: [], volume: [] }] },
-                },
-              ],
-            },
-          };
-        }
-      }
-      if (!payload) {
-        res.status(upstream?.status || 502).json({ error: `Yahoo HTTP ${upstream?.status || 502}` });
-        return;
+      const meta = payload?.chart?.result?.[0]?.meta;
+      if (meta?.regularMarketPrice != null || meta?.previousClose != null || meta?.chartPreviousClose != null) {
+        source = 'yahoo';
+      } else {
+        payload = null;
       }
     }
+
+    if (!payload?.chart?.result?.length) {
+      const pack = await yahooChartOrFallback(symbol);
+      if (pack?.payload) {
+        payload = pack.payload;
+        source = pack.kind === 'stooq' ? 'stooq' : 'yahoo';
+      }
+    }
+
+    if (!payload?.chart?.result?.length) {
+      res.status(502).json({ error: 'No quote data from Yahoo or Stooq fallback' });
+      return;
+    }
+
     const shortRange =
       interval.endsWith('m') || range === '1d' || range === '5d' || range === '7d';
+    res.setHeader('X-Quote-Source', source);
     res.setHeader(
       'Cache-Control',
-      shortRange ? 's-maxage=15, stale-while-revalidate=45' : 's-maxage=30, stale-while-revalidate=60',
+      source === 'stooq'
+        ? 's-maxage=60, stale-while-revalidate=120'
+        : shortRange
+          ? 's-maxage=15, stale-while-revalidate=45'
+          : 's-maxage=30, stale-while-revalidate=60',
     );
     res.status(200).json(payload);
   } catch (err) {

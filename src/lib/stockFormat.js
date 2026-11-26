@@ -250,6 +250,14 @@ export function pickRegularMarketDisplay(it, now = new Date()) {
 export function pickHeatmapChangePct(it, sessionMode) {
   if (!it || it.status !== 'done') return null;
   const sym = String(it.name || '').trim().toUpperCase();
+  const hasPrice = pickHeatmapPrice(it, sessionMode) != null;
+  if (!hasPrice) {
+    const n = Number(it.regular_change_pct);
+    if (it.regular_change_pct == null || Number.isNaN(n)) return null;
+    if (n === 0 && !isDisplayablePrice(it.previous_close)) return null;
+    if (sym.endsWith('.KS') || sessionMode === 'regular') return n;
+    return null;
+  }
   if (sym.endsWith('.KS') || sessionMode === 'regular') {
     const n = Number(it.regular_change_pct);
     return it.regular_change_pct == null || Number.isNaN(n) ? null : n;
