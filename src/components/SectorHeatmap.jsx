@@ -76,8 +76,15 @@ function googleStockSearchUrl(symbol) {
   return `https://www.google.com/search?q=${encodeURIComponent(`${sym} stock`)}`;
 }
 
-function HeatmapTile({ sym, label, it, pct, baselineId, daily }) {
-  const title = formatHeatmapTileTitleForBaseline(label, it, pct, baselineId, daily);
+function HeatmapTile({ sym, label, it, pct, baselineId, daily, clockExtendedMode }) {
+  const title = formatHeatmapTileTitleForBaseline(
+    label,
+    it,
+    pct,
+    baselineId,
+    daily,
+    clockExtendedMode,
+  );
   const href = googleStockSearchUrl(sym);
   const marvell = isMarvellCompany(sym) || isMarvellCompany(label);
   return (
@@ -168,6 +175,7 @@ export default function SectorHeatmap({
               baselineId={baselineId}
               onBaselineChange={onBaselineChange}
               theme="violet"
+              clockSession={extendedMode}
             />
             {needsHistory && !historyReady && (
               <span className="text-[10px] text-amber-400/90 shrink-0">Loading history…</span>
@@ -209,6 +217,7 @@ export default function SectorHeatmap({
                     pct={pct}
                     baselineId={baselineId}
                     daily={dailyBySymbol?.get(sym)}
+                    clockExtendedMode={extendedMode}
                   />
                 ))}
               </div>
@@ -237,6 +246,7 @@ export default function SectorHeatmap({
                   pct={pct}
                   baselineId={baselineId}
                   daily={dailyBySymbol?.get(sym)}
+                  clockExtendedMode={extendedMode}
                 />
               ))}
             </div>

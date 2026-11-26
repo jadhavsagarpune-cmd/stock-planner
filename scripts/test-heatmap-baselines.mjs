@@ -4,6 +4,8 @@
  */
 import {
   HEATMAP_BASELINES,
+  defaultHeatmapBaselineIdForClock,
+  heatmapBaselineMeta,
   heatmapBaselinePickerGroups,
   pickHeatmapChangePctForBaseline,
   pickCurrentHeatmapPrice,
@@ -11,8 +13,30 @@ import {
 
 const { session, history } = heatmapBaselinePickerGroups();
 const sessionBadges = session.map((b) => b.badge).join(',');
-if (sessionBadges !== 'LIVE,PRE,POST') {
+if (sessionBadges !== 'LIVE,PRE,AFTER') {
   console.error('FAIL session chip order', sessionBadges);
+  process.exit(1);
+}
+
+const wedPostClose = new Date('2026-11-26T22:00:00-05:00');
+if (defaultHeatmapBaselineIdForClock(wedPostClose) !== 'post') {
+  console.error('FAIL default baseline after US close should be post');
+  process.exit(1);
+}
+const wedPre = new Date('2026-11-26T08:00:00-05:00');
+if (defaultHeatmapBaselineIdForClock(wedPre) !== 'pre') {
+  console.error('FAIL default baseline pre-market should be pre');
+  process.exit(1);
+}
+const wedRth = new Date('2026-11-26T12:00:00-05:00');
+if (defaultHeatmapBaselineIdForClock(wedRth) !== 'live') {
+  console.error('FAIL default baseline RTH should be live');
+  process.exit(1);
+}
+
+const liveMetaClosed = heatmapBaselineMeta('live', 'post');
+if (liveMetaClosed.badge !== 'AFTER' || liveMetaClosed.filterBadge !== 'AFTER') {
+  console.error('FAIL live filter badge during after-hours', liveMetaClosed);
   process.exit(1);
 }
 if (session[0]?.id !== 'live') {

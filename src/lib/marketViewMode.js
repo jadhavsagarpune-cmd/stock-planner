@@ -36,7 +36,7 @@ export function watchlistUsesBaselinePct(baselineId) {
 
 export function watchlistActiveColumnMeta(baselineId, clockExtendedMode) {
   if (watchlistUsesBaselinePct(baselineId)) {
-    const meta = heatmapBaselineMeta(baselineId);
+    const meta = heatmapBaselineMeta(baselineId, clockExtendedMode);
     return {
       label: meta.badge,
       subtitle: meta.badge === 'PREV' ? 'vs prior close' : 'vs reference',

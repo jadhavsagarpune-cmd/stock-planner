@@ -19,7 +19,10 @@ export default async function handler(req, res) {
   try {
     const upstream = await yahooFetch(path);
     if (!upstream?.ok) {
-      res.status(upstream?.status || 502).json({ error: `Yahoo HTTP ${upstream?.status || 502}` });
+      res.status(upstream?.status || 502).json({
+        error: `Yahoo HTTP ${upstream?.status || 502}`,
+        quoteResponse: { result: [] },
+      });
       return;
     }
     const payload = await upstream.json();

@@ -1,3 +1,5 @@
+import { quoteIsRenderable, sanitizeQuotePrices } from './quoteResilience.js';
+
 const DB_NAME = 'stock-planner-price-history';
 const DB_VERSION = 1;
 const STORE_DAILY = 'daily_bars';
@@ -123,10 +125,12 @@ const LAST_GOOD_LS_PREFIX = 'stock-planner:last-quote:';
 export function saveLastGoodQuote(symbol, quote) {
   if (typeof localStorage === 'undefined' || !quote) return;
   const sym = String(symbol || '').trim().toUpperCase();
+  const clean = sanitizeQuotePrices(quote);
+  if (!quoteIsRenderable(clean)) return;
   try {
     localStorage.setItem(
       `${LAST_GOOD_LS_PREFIX}${sym}`,
-      JSON.stringify({ savedAt: Date.now(), quote }),
+      JSON.stringify({ savedAt: Date.now(), quote: clean }),
     );
   } catch {
     /* quota */
@@ -140,7 +144,8 @@ export function loadLastGoodQuote(symbol) {
     const raw = localStorage.getItem(`${LAST_GOOD_LS_PREFIX}${sym}`);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed?.quote ?? null;
+    const clean = sanitizeQuotePrices(parsed?.quote ?? null);
+    return quoteIsRenderable(clean) ? clean : null;
   } catch {
     return null;
   }

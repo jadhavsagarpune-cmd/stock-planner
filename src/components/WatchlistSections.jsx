@@ -521,6 +521,7 @@ export default function WatchlistSections({
             baselineId={baselineId}
             onBaselineChange={onBaselineChange}
             theme="slate"
+            clockSession={columnMode}
           />
         </div>
         <MarketBaselineHistoryRow

@@ -500,7 +500,7 @@ export async function fetchWatchlistQuotes(entries, onProgress) {
       idx += 1;
       const [label, symbol] = entries[i];
       try {
-        const quote = await fetchYahooQuote(symbol);
+        const quote = sanitizeQuotePrices(await fetchYahooQuote(symbol));
         items[i] = {
           name: symbol,
           label,

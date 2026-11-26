@@ -1,4 +1,5 @@
 import { HEATMAP_BASELINES, heatmapBaselinePickerGroups } from '../lib/heatmapBaselines';
+import { heatmapSessionMeta } from '../lib/stockMarketSession';
 
 const ACTIVE_THEMES = {
   violet: {
@@ -15,17 +16,38 @@ const ACTIVE_THEMES = {
   },
 };
 
-export function MarketBaselineChip({ b, baselineId, onBaselineChange, theme = 'violet', className = '' }) {
+const CLOCK_RING = {
+  live: 'ring-1 ring-emerald-400/50',
+  pre: 'ring-1 ring-amber-400/50',
+  post: 'ring-1 ring-violet-400/50',
+};
+
+function baselineMatchesClock(b, clockSession) {
+  if (!clockSession) return false;
+  if (b.id === 'live') return clockSession === 'regular';
+  return b.sessionMode === clockSession;
+}
+
+export function MarketBaselineChip({
+  b,
+  baselineId,
+  onBaselineChange,
+  theme = 'violet',
+  className = '',
+  clockSession = null,
+}) {
   const active = b.id === baselineId;
   const t = ACTIVE_THEMES[theme] ?? ACTIVE_THEMES.violet;
+  const clockNow = !active && baselineMatchesClock(b, clockSession);
+  const ring = clockNow ? CLOCK_RING[b.id === 'live' ? 'live' : b.sessionMode] ?? '' : '';
   return (
     <button
       type="button"
       onClick={() => onBaselineChange?.(b.id)}
       className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold tracking-wide transition-colors ${className} ${
         active ? t.active : t.idle
-      }`}
-      title={b.subtitle}
+      } ${ring}`}
+      title={clockNow ? `${b.subtitle} · US session now` : b.subtitle}
       aria-pressed={active}
     >
       {b.badge}
@@ -40,15 +62,26 @@ export function MarketBaselineSessionRow({
   theme = 'violet',
   ariaLabel = 'Market session baselines',
   className = '',
+  clockSession = 'regular',
+  showClockPill = true,
 }) {
   if (!onBaselineChange) return null;
   const { session } = heatmapBaselinePickerGroups();
+  const clockMeta = heatmapSessionMeta(clockSession);
   return (
     <div
-      className={`flex flex-nowrap gap-1 shrink-0 ${className}`}
+      className={`flex flex-wrap items-center gap-x-1.5 gap-y-1 shrink-0 ${className}`}
       role="group"
       aria-label={ariaLabel}
     >
+      {showClockPill && clockSession !== 'regular' ? (
+        <span
+          className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold tracking-wider shrink-0 ${clockMeta.badgeClass}`}
+          title={`US session now · ${clockMeta.subtitle}`}
+        >
+          {clockMeta.badge}
+        </span>
+      ) : null}
       {session.map((b) => (
         <MarketBaselineChip
           key={b.id}
@@ -56,6 +89,7 @@ export function MarketBaselineSessionRow({
           baselineId={baselineId}
           onBaselineChange={onBaselineChange}
           theme={theme}
+          clockSession={clockSession}
         />
       ))}
     </div>

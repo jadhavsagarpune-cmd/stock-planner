@@ -4,7 +4,13 @@ import {
   pickHeatmapChangePct,
   pickHeatmapPrice,
 } from './stockFormat.js';
-import { heatmapSessionMeta, normalizeMarketState, resolveUsExtendedColumnMode } from './stockMarketSession.js';
+import {
+  closedExtendedModeByClock,
+  heatmapSessionMeta,
+  isUsRegularSessionByClock,
+  normalizeMarketState,
+  resolveUsExtendedColumnMode,
+} from './stockMarketSession.js';
 
 export const HEATMAP_BASELINE_STORAGE_KEY = 'stock-planner.heatmapBaseline';
 
@@ -29,8 +35,8 @@ export const HEATMAP_BASELINES = [
   {
     id: 'post',
     label: 'After Market',
-    badge: 'POST',
-    subtitle: 'After-hours % vs previous close',
+    badge: 'AFTER',
+    subtitle: 'After-hours % vs regular session close',
     needsSessionPrice: true,
     sessionMode: 'post',
   },
@@ -88,14 +94,22 @@ export function heatmapBaselinePickerGroups() {
   return { session, history };
 }
 
-export function loadHeatmapBaselineId() {
+/** First-visit default: RTH → live, pre → pre, post/closed → post. */
+export function defaultHeatmapBaselineIdForClock(now = new Date()) {
+  if (isUsRegularSessionByClock(now)) return 'live';
+  const ext = closedExtendedModeByClock(now);
+  if (ext === 'pre') return 'pre';
+  return 'post';
+}
+
+export function loadHeatmapBaselineId(now = new Date()) {
   try {
     const v = localStorage.getItem(HEATMAP_BASELINE_STORAGE_KEY);
     if (v && HEATMAP_BASELINES.some((b) => b.id === v)) return v;
   } catch {
     /* ignore */
   }
-  return 'live';
+  return defaultHeatmapBaselineIdForClock(now);
 }
 
 function baselineSessionMode(baselineId) {
@@ -125,11 +139,17 @@ export function heatmapBaselineMeta(baselineId, clockExtendedMode = 'regular') {
         : clockExtendedMode === 'pre'
           ? 'Pre-market'
           : 'After Market';
+    const liveSubtitle =
+      clockExtendedMode === 'regular'
+        ? 'Regular session % vs previous close · clustered by move'
+        : clockExtendedMode === 'pre'
+          ? 'Pre-market % vs previous close · LIVE filter shows regular-session day %'
+          : 'After-hours context · LIVE filter shows regular-session day % vs prior close';
     return {
       ...sessionMeta,
       title: `Market heatmap · ${sessionTitle}`,
-      subtitle: 'Regular session % vs previous close · clustered by move',
-      filterBadge: 'LIVE',
+      subtitle: liveSubtitle,
+      filterBadge: sessionMeta.badge,
       base,
     };
   }
@@ -259,8 +279,15 @@ export function pickHeatmapPriceForBaseline(it, baselineId, daily = null) {
   return bars?.length ? bars[bars.length - 1].close : it.regular_price;
 }
 
-export function formatHeatmapTileTitleForBaseline(label, it, pct, baselineId, daily = null) {
-  const meta = heatmapBaselineMeta(baselineId);
+export function formatHeatmapTileTitleForBaseline(
+  label,
+  it,
+  pct,
+  baselineId,
+  daily = null,
+  clockExtendedMode = 'regular',
+) {
+  const meta = heatmapBaselineMeta(baselineId, clockExtendedMode);
   const parts = [label];
   const price = pickHeatmapPriceForBaseline(it, baselineId, daily);
   const priceStr = formatStockPrice(price, it?.currency);

@@ -166,7 +166,7 @@ export function heatmapSessionMeta(mode) {
     };
   }
   return {
-    badge: 'POST',
+    badge: 'AFTER',
     title: 'Market heatmap · After Market',
     subtitle: 'After-hours % vs regular close · US names (KRX uses local session)',
     badgeClass:
