@@ -9,7 +9,7 @@ function Headline({ it, moves }) {
       href={it.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1.5 px-4 text-xs text-slate-300 hover:text-white whitespace-nowrap"
+      className="pointer-events-auto cursor-pointer inline-flex items-center gap-1.5 px-4 py-1 text-xs text-slate-300 hover:text-white hover:underline whitespace-nowrap"
     >
       {sym && pct != null ? (
         <span className={`font-mono tabular-nums ${changeColorClass(pct)}`}>
@@ -35,7 +35,7 @@ export default function NewsTicker({ items, moves, loading, onOpen }) {
     <div className="mb-3 rounded-lg border border-slate-700 bg-slate-900/80 overflow-hidden" aria-label="Top news ticker">
       <style>{`
         .news-marquee{display:inline-flex;animation:news-scroll ${Math.max(40, list.length * 8)}s linear infinite}
-        .news-wrap:hover .news-marquee{animation-play-state:paused}
+        .news-wrap:hover .news-marquee,.news-wrap:focus-within .news-marquee{animation-play-state:paused}
         @keyframes news-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
         @media (prefers-reduced-motion: reduce){.news-marquee{animation:none}.news-wrap{overflow-x:auto}}
       `}</style>
@@ -50,10 +50,10 @@ export default function NewsTicker({ items, moves, loading, onOpen }) {
           <button type="button" onClick={onOpen} className="text-xs text-violet-300">All news →</button>
         </li>
       </ul>
-      <div className="news-wrap hidden sm:block overflow-hidden py-1.5">
+      <div className="news-wrap hidden sm:block overflow-hidden py-1 relative z-10">
         <div className="news-marquee">
           {[0, 1].map((k) => (
-            <span key={k} className="inline-flex" aria-hidden={k === 1 ? 'true' : undefined}>
+            <span key={k} className="inline-flex">
               {list.map((it) => (
                 <Headline key={`${k}-${it.url}`} it={it} moves={moves} />
               ))}

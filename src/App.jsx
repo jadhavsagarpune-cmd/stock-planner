@@ -20,6 +20,7 @@ import { fetchNews } from './lib/news';
 import { buildMoveMap, rankNews } from './lib/newsRank';
 import NewsTicker from './components/NewsTicker';
 import NewsPanel from './components/NewsPanel';
+import AboutModal, { DEVELOPER } from './components/AboutModal';
 import WatchlistSections from './components/WatchlistSections';
 import SectorHeatmap from './components/SectorHeatmap';
 import MrvlPriceChart from './components/MrvlPriceChart';
@@ -75,6 +76,7 @@ export default function App() {
   const [news, setNews] = useState({ items: [], windowHours: 24, ok: true });
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsOpen, setNewsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const refreshNews = useCallback(async () => {
     setNewsLoading(true);
@@ -311,6 +313,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setAboutOpen(true)}
+            className="text-xs px-3 py-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-600 hover:border-violet-500/40"
+            aria-haspopup="dialog"
+          >
+            About
+          </button>
+          <button
+            type="button"
             onClick={() => downloadWatchlistCsv(items)}
             disabled={!items.length || loading}
             className="text-xs px-3 py-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-600 disabled:opacity-50"
@@ -415,6 +425,8 @@ export default function App() {
         onRefresh={refreshNews}
       />
 
+      <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
+
       <MrvlHoldingsPanel
         open={holdingsOpen}
         onClose={() => setHoldingsOpen(false)}
@@ -431,6 +443,10 @@ export default function App() {
         Alerts need this tab open.
         <span className="block mt-1 text-slate-700 font-mono tabular-nums">
           Build {typeof __APP_BUILD_SHA__ !== 'undefined' ? __APP_BUILD_SHA__ : 'dev'}
+          {' · '}
+          <a href={`mailto:${DEVELOPER.email}`} className="hover:text-slate-400 underline-offset-2 hover:underline">
+            Developer: {DEVELOPER.name} · {DEVELOPER.email}
+          </a>
         </span>
       </p>
     </div>
