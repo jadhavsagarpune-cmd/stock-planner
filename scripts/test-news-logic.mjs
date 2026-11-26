@@ -35,6 +35,8 @@ const rss = '<rss><item><title>Marvell wins deal - Reuters</title><link>https://
 const g = parseGoogleRss(rss, 'MRVL');
 assert(g.length === 1 && g[0].title === 'Marvell wins deal' && g[0].publisher === 'Reuters');
 
+assert(parseYahooNews({ news: [{ title: 'ETFs Are Net Sellers of Broadcom (AVGO) on Nov. 24', link: 'https://a/c', providerPublishTime: 1700000000 }] }, 'AVGO').length === 0, 'noise');
+
 // scoring + ranking
 const moves = buildMoveMap([{ name: 'NVDA', status: 'done', regular_change_pct: -2.7 }, { name: 'AMD', status: 'done', regular_change_pct: 0.5 }], null);
 assert(keywordBoost('Nvidia export probe') === 4);

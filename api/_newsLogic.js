@@ -69,6 +69,11 @@ export function applyTimeWindow(items, now = Date.now()) {
   return { items: within(72), windowHours: 72 };
 }
 
+/** Low-signal ETF flow / holdings filler. */
+export function isNoise(title) {
+  return /^(ETFs? (are )?(net )?(sellers|buyers|activity)|ETF Activity)|\b(adds|sells|sold|buys|bought) .* on nov\. \d+/i.test(title);
+}
+
 export function parseYahooNews(json, sym) {
   const list = Array.isArray(json?.news) ? json.news : [];
   const out = [];
@@ -76,7 +81,7 @@ export function parseYahooNews(json, sym) {
     const title = String(n?.title || '').trim();
     const url = String(n?.link || '').trim();
     const ts = Number(n?.providerPublishTime);
-    if (!title || !/^https?:\/\//.test(url) || !Number.isFinite(ts)) continue;
+    if (!title || isNoise(title) || !/^https?:\/\//.test(url) || !Number.isFinite(ts)) continue;
     const rel = Array.isArray(n.relatedTickers) ? n.relatedTickers.map(String) : [];
     out.push({
       title,
