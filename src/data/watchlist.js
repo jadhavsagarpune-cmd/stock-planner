@@ -70,7 +70,6 @@ export const WATCHLIST_SECTIONS = [
     entries: [
       ['Cisco (CSCO)', 'CSCO'],
       ['Arista Networks (ANET)', 'ANET'],
-      ['Juniper Networks (JNPR)', 'JNPR'],
       ['Dell Technologies (DELL)', 'DELL'],
       ['Hewlett Packard Enterprise (HPE)', 'HPE'],
       ['Pure Storage (PSTG)', 'PSTG'],
