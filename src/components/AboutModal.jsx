@@ -1,6 +1,6 @@
 import { useEffect, useId } from 'react';
 
-export const DEVELOPER = { name: 'Sagar Jadhav', email: 'rsutar@marvell.com' };
+import { DEVELOPER } from '../lib/appInfo';
 
 const VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 const SHA = typeof __APP_BUILD_SHA__ !== 'undefined' ? __APP_BUILD_SHA__ : 'dev';
