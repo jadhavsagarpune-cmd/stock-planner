@@ -8,6 +8,7 @@ import {
   resolveRegularMarketPrice,
 } from '../src/lib/quotes.js';
 import { quoteIsRenderable, sanitizeQuotePrices } from '../src/lib/quoteResilience.js';
+import { mergeYahooExtendedFields } from '../src/lib/yahooExtendedMerge.js';
 
 const ADBE_META_STALE_CHART = {
   symbol: 'ADBE',
@@ -194,6 +195,49 @@ const v7OnlyMeta = {
 const v7Only = mapYahooMetaToQuote(v7OnlyMeta, 'MRVL');
 if (!quoteIsRenderable(v7Only) || v7Only.regular_price !== 92.12) {
   console.error('FAIL v7-only partial quote', v7Only);
+  process.exit(1);
+}
+
+const stooqOnly = {
+  source: 'stooq_fallback',
+  symbol: 'MRVL',
+  marketState: 'CLOSED',
+  regularMarketPrice: 130.93,
+  regularMarketPreviousClose: 131.57,
+};
+const yahooExt = {
+  postMarketPrice: 133.61,
+  postMarketChange: 2.68,
+  postMarketChangePercent: 2.05,
+  postMarketTime: 1764110376,
+  marketState: 'CLOSED',
+};
+const merged = mergeYahooExtendedFields(stooqOnly, yahooExt);
+const mergedQuote = mapYahooMetaToQuote(merged, 'MRVL');
+if (mergedQuote.postmarket_price == null || Math.abs(mergedQuote.postmarket_price - 133.61) > 0.02) {
+  console.error('FAIL stooq+yahoo extended merge', mergedQuote.postmarket_price);
+  process.exit(1);
+}
+const mergedAfterPct = ((133.61 - 130.93) / 130.93) * 100;
+if (Math.abs(mergedQuote.postmarket_change_pct - mergedAfterPct) > 0.08) {
+  console.error('FAIL merged after % vs at close', mergedQuote.postmarket_change_pct);
+  process.exit(1);
+}
+
+const thanksgivingMeta = {
+  symbol: 'MRVL',
+  marketState: 'CLOSED',
+  regularMarketPrice: 130.93,
+  regularMarketPreviousClose: 131.57,
+  regularMarketChange: -0.64,
+  regularMarketChangePercent: -0.49,
+  postMarketPrice: 133.61,
+  postMarketChange: 2.68,
+  postMarketChangePercent: 2.05,
+};
+const thQuote = mapYahooMetaToQuote(thanksgivingMeta, 'MRVL');
+if (Math.abs(thQuote.regular_price - 130.93) > 0.01 || Math.abs(thQuote.postmarket_price - 133.61) > 0.01) {
+  console.error('FAIL thanksgiving MRVL fixture', thQuote);
   process.exit(1);
 }
 

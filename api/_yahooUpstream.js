@@ -1,5 +1,6 @@
 import { fetchWithTimeout, sleep, DEFAULT_UPSTREAM_TIMEOUT_MS } from './_fetchUtils.js';
 import { fetchStooqQuoteMeta, stooqMetaFromSymbol } from './_stooqFallback.js';
+import { mergeYahooExtendedFields } from './_mergeYahooExtended.js';
 
 const YAHOO_HOSTS = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
 
@@ -139,8 +140,18 @@ export async function yahooChartOrFallback(symbol) {
   } catch {
     /* fall through */
   }
-  const stooqMeta = await fetchStooqQuoteMeta(sym);
+  let stooqMeta = await fetchStooqQuoteMeta(sym);
   if (stooqMeta) {
+    try {
+      const v7 = await yahooFetch(v7Path);
+      if (v7?.ok) {
+        const v7Json = await v7.json();
+        const row = v7Json?.quoteResponse?.result?.[0];
+        if (row) stooqMeta = mergeYahooExtendedFields(stooqMeta, row);
+      }
+    } catch {
+      /* Stooq-only */
+    }
     return {
       kind: 'stooq',
       payload: {

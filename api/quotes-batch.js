@@ -1,4 +1,8 @@
 import { yahooFetch, fetchStooqQuoteMeta } from './_yahooUpstream.js';
+import {
+  mergeYahooExtendedFields,
+  yahooChartMetaForSymbol,
+} from './_mergeYahooExtended.js';
 
 const MAX_SYMBOLS = 80;
 const CHUNK = 40;
@@ -54,8 +58,11 @@ export default async function handler(req, res) {
 
     await Promise.all(
       [...missing].map(async (sym) => {
-        const meta = await fetchStooqQuoteMeta(sym);
-        if (meta) bySymbol[sym] = meta;
+        let meta = await fetchStooqQuoteMeta(sym);
+        if (!meta) return;
+        const chartMeta = await yahooChartMetaForSymbol(sym, yahooFetch);
+        if (chartMeta) meta = mergeYahooExtendedFields(meta, chartMeta);
+        bySymbol[sym] = meta;
       }),
     );
 

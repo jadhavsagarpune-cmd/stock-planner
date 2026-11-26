@@ -1,6 +1,11 @@
 import { closedExtendedModeByClock, isUsRegularSessionByClock } from './stockMarketSession.js';
 import { quoteIsRenderable, sanitizeQuotePrices } from './quoteResilience.js';
 import {
+  isStooqFallbackMeta,
+  mergeYahooExtendedFields,
+  YAHOO_EXTENDED_FIELD_KEYS,
+} from './yahooExtendedMerge.js';
+import {
   CLIENT_FETCH_TIMEOUT_MS,
   clientFetchTimeout,
   mergeAbortSignals,
@@ -143,15 +148,24 @@ async function fetchYahooChartResponse(symbol, { signal } = {}) {
   }
 }
 
-/** Overlay v7 quote fields onto chart meta (quote wins for session prices). */
+/** Overlay v7 quote fields onto chart meta (Yahoo extended always wins over Stooq). */
 function mergeQuoteSummaryIntoMeta(chartMeta, summaryRow) {
   if (!summaryRow) return chartMeta || {};
+  const chartIsYahoo = chartMeta && !isStooqFallbackMeta(chartMeta);
+  const summaryIsStooq = isStooqFallbackMeta(summaryRow);
   const out = { ...(chartMeta || {}) };
   for (const key of QUOTE_SUMMARY_KEYS) {
-    if (summaryRow[key] != null) out[key] = summaryRow[key];
+    if (summaryRow[key] == null) continue;
+    if (summaryIsStooq && chartIsYahoo && YAHOO_EXTENDED_FIELD_KEYS.includes(key)) {
+      continue;
+    }
+    out[key] = summaryRow[key];
   }
   if (summaryRow.regularMarketPreviousClose != null) {
     out.regularMarketPreviousClose = summaryRow.regularMarketPreviousClose;
+  }
+  if (chartIsYahoo) {
+    return mergeYahooExtendedFields(out, chartMeta);
   }
   return out;
 }
@@ -436,11 +450,12 @@ export function mapYahooMetaToQuote(meta, sym, chartResult, opts = {}) {
     premarketChangeAbs = null;
   }
 
-  let postmarketChangePct = null;
-  let postmarketChangeAbs = null;
+  let postmarketChangePct = yahooChangePct(float(meta.postMarketChangePercent));
+  let postmarketChangeAbs = float(meta.postMarketChange);
   if (postmarketPrice != null && extendedBase != null) {
-    postmarketChangePct = deriveChangePct(postmarketPrice, extendedBase);
-    postmarketChangeAbs = postmarketPrice - extendedBase;
+    const derivedPct = deriveChangePct(postmarketPrice, extendedBase);
+    if (derivedPct != null) postmarketChangePct = derivedPct;
+    if (postmarketChangeAbs == null) postmarketChangeAbs = postmarketPrice - extendedBase;
     postmarketChangeAbs = alignChangeAbsWithPct(postmarketChangeAbs, postmarketChangePct);
   }
 

@@ -1,4 +1,8 @@
 import { yahooFetch, fetchStooqQuoteMeta } from './_yahooUpstream.js';
+import {
+  mergeYahooExtendedFields,
+  yahooChartMetaForSymbol,
+} from './_mergeYahooExtended.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -28,9 +32,11 @@ export default async function handler(req, res) {
         return;
       }
     }
-    const stooqMeta = await fetchStooqQuoteMeta(symbol);
+    let stooqMeta = await fetchStooqQuoteMeta(symbol);
     if (stooqMeta) {
-      res.setHeader('X-Quote-Source', 'stooq');
+      const chartMeta = await yahooChartMetaForSymbol(symbol, yahooFetch);
+      if (chartMeta) stooqMeta = mergeYahooExtendedFields(stooqMeta, chartMeta);
+      res.setHeader('X-Quote-Source', chartMeta ? 'stooq+yahoo_ext' : 'stooq');
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
       res.status(200).json({
         quoteResponse: { result: [stooqMeta] },
@@ -43,9 +49,11 @@ export default async function handler(req, res) {
       quoteResponse: { result: [] },
     });
   } catch (err) {
-    const stooqMeta = await fetchStooqQuoteMeta(symbol);
+    let stooqMeta = await fetchStooqQuoteMeta(symbol);
     if (stooqMeta) {
-      res.setHeader('X-Quote-Source', 'stooq');
+      const chartMeta = await yahooChartMetaForSymbol(symbol, yahooFetch);
+      if (chartMeta) stooqMeta = mergeYahooExtendedFields(stooqMeta, chartMeta);
+      res.setHeader('X-Quote-Source', chartMeta ? 'stooq+yahoo_ext' : 'stooq');
       res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
       res.status(200).json({
         quoteResponse: { result: [stooqMeta] },

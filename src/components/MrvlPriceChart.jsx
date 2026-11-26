@@ -12,7 +12,6 @@ import { MARVELL_HERO_PANEL, MARVELL_TICKER_CHIP, MARVELL_TICKER } from '../lib/
 import {
   changeColorClass,
   formatChangePct,
-  formatSignedChangeAmount,
   formatStockPrice,
 } from '../lib/stockFormat';
 import {
@@ -26,7 +25,6 @@ import {
 import MarketStatusChip from './MarketStatusChip';
 import YahooQuoteStrip from './YahooQuoteStrip';
 import { quoteIsRenderable } from '../lib/quoteResilience';
-import { pickActiveSessionPrice, sessionHeadlineLabel } from '../lib/sessionQuote';
 
 const CHART_W = 640;
 const CHART_H = 160;
@@ -67,14 +65,6 @@ function buildArea(bars, plotW, plotH, yMin, yMax) {
   const x1 = barIndexToSvgX(n - 1, n, PAD.l, plotW);
   const yBase = PAD.t + plotH;
   return `${line} L ${x1.toFixed(2)},${yBase} L ${x0.toFixed(2)},${yBase} Z`;
-}
-
-function chartPriceBasisLine(mrvl) {
-  const price = mrvl ? pickActiveSessionPrice(mrvl) : null;
-  const headline = mrvl ? sessionHeadlineLabel(mrvl) : null;
-  return price != null && headline
-    ? `Chart last bar tracks ${headline.toLowerCase()} when polling.`
-    : 'Chart from Yahoo closes; intraday ranges refresh about every 60s.';
 }
 
 export default function MrvlPriceChart({
@@ -158,7 +148,7 @@ export default function MrvlPriceChart({
     [bars, mrvl, rangeSpec.interval],
   );
 
-  const { pct: periodPct, abs: periodAbs, last: chartLast } = useMemo(
+  const { pct: periodPct, last: chartLast } = useMemo(
     () => periodChange(chartBars),
     [chartBars],
   );
@@ -243,7 +233,6 @@ export default function MrvlPriceChart({
   const hasQuote = quoteIsRenderable(mrvl);
   const currency = mrvl?.currency ?? 'USD';
   const rangeChipLabel = rangeSpec.label;
-  const basisLine = chartPriceBasisLine(mrvl);
 
   return (
     <section className={`mb-4 rounded-xl border p-3 sm:p-4 ${MARVELL_HERO_PANEL}`}>
@@ -311,15 +300,6 @@ export default function MrvlPriceChart({
             viewBaselineId={baselineId}
             viewBaselineDaily={mrvlDaily}
           />
-          {periodPct != null && chartBars.length > 1 && (
-            <p className="text-[11px] sm:text-xs tabular-nums leading-snug">
-              <span className="text-slate-500">{rangeChipLabel} range · vs range open</span>{' '}
-              <span className={`font-mono font-semibold ${changeColorClass(periodPct)}`}>
-                {formatSignedChangeAmount(periodAbs, currency)} ({formatChangePct(periodPct)})
-              </span>
-            </p>
-          )}
-          <p className="text-[10px] text-slate-500 leading-snug">{basisLine}</p>
         </div>
       ) : !mrvlErr ? (
         <p className="text-sm text-slate-500 mb-2">Loading MRVL…</p>

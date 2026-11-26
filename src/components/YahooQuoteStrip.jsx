@@ -2,246 +2,81 @@ import {
   changeColorClass,
   formatMrvlInrHint,
   formatStockPrice,
-  pickExtendedQuote,
-  pickHeatmapChangePct,
-  pickHeatmapPrice,
-  pickRegularMarketDisplay,
 } from '../lib/stockFormat';
 import StockPriceChangeLines from './StockPriceChangeLines';
-import { formatAtCloseTime, formatUsMarketTime } from '../lib/marketTimeFormat';
-import {
-  pickActiveSessionPrice,
-  pickSessionDayChange,
-  resolveActiveSession,
-  sessionHeadlineLabel,
-} from '../lib/sessionQuote';
-import { closedExtendedModeByClock, isUsRegularSessionByClock } from '../lib/stockMarketSession';
-import { pickBestQuotePrice } from '../lib/quoteResilience';
-import {
-  pickHeatmapChangePctForBaseline,
-  pickHeatmapPriceForBaseline,
-  heatmapBaselineMeta,
-} from '../lib/heatmapBaselines';
-import { sessionModeFromBaselineId, watchlistUsesBaselinePct } from '../lib/marketViewMode';
+import { resolveYahooQuotePanels, yahooQuoteFooterStats } from '../lib/yahooHeroSessions';
 
-function SessionColumn({
-  title,
-  timeLabel,
-  price,
-  pct,
-  abs,
-  currency,
-  fxRate,
-  showInrChange,
-  muted,
-  showChange = true,
-}) {
-  const priceStr = price != null ? formatStockPrice(price, currency) : '—';
-  const inrHint =
-    showInrChange && fxRate != null && price != null ? formatMrvlInrHint(price, fxRate) : null;
+function QuoteFooter({ quote, currency }) {
+  const { parts } = yahooQuoteFooterStats(quote, currency);
+  if (!parts.length) return null;
   return (
-    <div className={`min-w-0 ${muted ? 'opacity-90' : ''}`}>
-      <div className="text-[11px] font-semibold text-slate-200">{title}</div>
-      {timeLabel ? (
-        <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums">{timeLabel}</div>
-      ) : null}
-      <div className="text-sm sm:text-base font-semibold font-mono tabular-nums text-white mt-1">
-        {priceStr}
-        {inrHint ? (
-          <span className="text-[10px] font-normal text-violet-300/80 block">{inrHint}</span>
-        ) : null}
-      </div>
-      {price != null && showChange ? (
-        <StockPriceChangeLines
-          pct={pct}
-          changeAbs={abs}
-          currency={currency}
-          fxRate={fxRate}
-          showInrChange={showInrChange}
-          className="!items-start !text-[10px] sm:!text-[11px] mt-0.5"
-        />
-      ) : price != null && !showChange ? null : (
-        <span className="text-[10px] text-slate-600 block mt-1">—</span>
-      )}
+    <div className="text-[10px] text-slate-500 leading-relaxed flex flex-wrap gap-x-3 gap-y-0.5">
+      {parts.map((p) => (
+        <span key={p.label} className="whitespace-nowrap">
+          <span>{p.label}</span>{' '}
+          {p.low != null ? (
+            <span className="font-mono tabular-nums text-slate-400">
+              {formatStockPrice(p.low, currency)} - {formatStockPrice(p.high, currency)}
+            </span>
+          ) : (
+            <span className="font-mono tabular-nums text-slate-400">
+              {formatStockPrice(p.value, currency)}
+            </span>
+          )}
+        </span>
+      ))}
     </div>
   );
 }
 
-function YahooQuoteHero({
-  quote,
-  currency = 'USD',
-  fxRate = null,
-  showInrChange = false,
-  companyName = 'Marvell Technology, Inc.',
-  ticker = 'MRVL',
-  className = '',
-  now = new Date(),
-  viewBaselineId = null,
-  viewBaselineDaily = null,
+function SessionPriceBlock({
+  price,
+  pct,
+  abs,
+  timeLabel,
+  currency,
+  fxRate,
+  showInrChange,
+  size = 'hero',
+  muted = false,
 }) {
-  const forcedSession = viewBaselineId ? sessionModeFromBaselineId(viewBaselineId) : null;
-  const historicalView = viewBaselineId && watchlistUsesBaselinePct(viewBaselineId);
-
-  let session = forcedSession ?? resolveActiveSession(quote, now);
-  let headlinePrice = pickActiveSessionPrice(quote, now);
-  let headlinePct = null;
-  let headlineAbs = null;
-  let headlineLabel;
-  let headlineSubnote = null;
-
-  if (viewBaselineId === 'live') {
-    const rth = isUsRegularSessionByClock(now);
-    headlinePrice =
-      pickHeatmapPrice(quote, 'regular')
-      ?? pickActiveSessionPrice(quote, now)
-      ?? pickBestQuotePrice(quote);
-    headlinePct = pickHeatmapChangePct(quote, 'regular');
-    const dayChange = pickSessionDayChange(quote, now);
-    if (headlinePct == null) headlinePct = dayChange?.pct ?? null;
-    if (headlineAbs == null) headlineAbs = dayChange?.abs ?? null;
-    session = rth ? 'regular' : 'closed';
-    headlineLabel = rth ? 'Quote · Live' : 'Regular session (last close)';
-    headlineSubnote = rth
-      ? 'Live regular session · vs previous close'
-      : 'Last regular session close · vs previous close';
-  } else if (historicalView) {
-    headlinePrice = pickHeatmapPriceForBaseline(quote, viewBaselineId, viewBaselineDaily);
-    headlinePct = pickHeatmapChangePctForBaseline(quote, viewBaselineId, viewBaselineDaily);
-    const meta = heatmapBaselineMeta(viewBaselineId, closedExtendedModeByClock(now));
-    session = null;
-    headlineLabel = `Quote · ${meta.badge}`;
-    headlineSubnote = meta.subtitle;
-  } else if (forcedSession) {
-    headlinePrice = pickHeatmapPrice(quote, forcedSession) ?? pickActiveSessionPrice(quote, now);
-    headlinePct = pickHeatmapChangePct(quote, forcedSession);
-    session = forcedSession;
-    headlineLabel =
-      forcedSession === 'pre'
-        ? 'Pre-market'
-        : forcedSession === 'post'
-          ? 'After Market'
-          : sessionHeadlineLabel(quote, now);
-  } else {
-    const dayChange = pickSessionDayChange(quote, now);
-    headlinePct = dayChange?.pct ?? null;
-    headlineAbs = dayChange?.abs ?? null;
-    headlineLabel = sessionHeadlineLabel(quote, now);
-  }
-
-  let headlineTime = null;
-  if (session === 'pre') headlineTime = formatUsMarketTime(quote.pre_market_time);
-  else if (session === 'post') headlineTime = formatUsMarketTime(quote.post_market_time);
-  else if (session === 'regular') headlineTime = null;
-  else headlineTime = formatAtCloseTime(quote.regular_market_time);
-
-  let secondary = null;
-  if (!forcedSession && !historicalView && session === 'pre') {
-    secondary = {
-      title: 'At close',
-      timeLabel: formatAtCloseTime(quote.regular_market_time),
-      price: quote.regular_price,
-      pct: quote.regular_change_pct,
-      abs: quote.regular_change_abs,
-      showChange: true,
-    };
-  } else if (!forcedSession && !historicalView && session === 'post') {
-    const atClose = pickRegularMarketDisplay(quote, now);
-    secondary = {
-      title: 'At close',
-      timeLabel: formatAtCloseTime(quote.regular_market_time),
-      price: atClose?.preIdle ? quote.previous_close : (atClose?.price ?? quote.regular_price),
-      pct: atClose?.preIdle ? null : (atClose?.pct ?? quote.regular_change_pct),
-      abs: atClose?.preIdle ? null : (atClose?.abs ?? quote.regular_change_abs),
-      showChange: !atClose?.preIdle,
-    };
-  }
-
-  const dayHigh = quote.day_high;
-  const dayLow = quote.day_low;
-  const open = quote.regular_market_open;
-  const w52Hi = quote.fifty_two_week_high;
-  const w52Lo = quote.fifty_two_week_low;
-
-  const footerParts = [
-    quote.previous_close != null && {
-      label: 'Previous Close',
-      value: formatStockPrice(quote.previous_close, currency),
-    },
-    open != null && { label: 'Open', value: formatStockPrice(open, currency) },
-    dayLow != null &&
-      dayHigh != null && {
-        label: "Day's Range",
-        value: `${formatStockPrice(dayLow, currency)} - ${formatStockPrice(dayHigh, currency)}`,
-      },
-    w52Lo != null &&
-      w52Hi != null && {
-        label: '52 Week Range',
-        value: `${formatStockPrice(w52Lo, currency)} - ${formatStockPrice(w52Hi, currency)}`,
-      },
-  ].filter(Boolean);
+  const priceSize =
+    size === 'hero' ? 'text-2xl sm:text-[1.75rem] font-semibold' : 'text-sm sm:text-base font-semibold';
+  const priceStr = price != null ? formatStockPrice(price, currency) : '—';
+  const inrHint =
+    showInrChange && fxRate != null && price != null ? formatMrvlInrHint(price, fxRate) : null;
 
   return (
-    <div className={`space-y-3 ${className}`}>
-      <TitleRow companyName={companyName} ticker={ticker} />
-      <div
-        className={
-          secondary
-            ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8'
-            : ''
-        }
-      >
-        <div className="min-w-0">
-          <div className="text-[11px] sm:text-xs text-slate-400 font-medium">{headlineLabel}</div>
-          {headlineSubnote ? (
-            <div className="text-[10px] text-slate-500 mt-0.5 leading-snug">{headlineSubnote}</div>
-          ) : null}
-          {headlineTime ? (
-            <div className="text-[10px] text-slate-500 mt-0.5 tabular-nums">{headlineTime}</div>
-          ) : null}
+    <div className={`min-w-0 ${muted ? 'opacity-95' : ''}`}>
+      {price != null ? (
+        <>
           <div
-            className={`font-mono text-3xl sm:text-4xl font-semibold tabular-nums leading-none mt-0.5 ${changeColorClass(headlinePct)}`}
+            className={`font-mono tabular-nums leading-none ${priceSize} ${changeColorClass(pct)}`}
           >
-            {formatStockPrice(headlinePrice, currency)}
+            {priceStr}
           </div>
-          {headlinePct != null || headlineAbs != null ? (
-            <div className="mt-1.5">
+          {inrHint ? (
+            <span className="text-[10px] font-normal text-violet-300/80 block mt-0.5">{inrHint}</span>
+          ) : null}
+          {pct != null || abs != null ? (
+            <div className="mt-1">
               <StockPriceChangeLines
-                quote={quote}
-                pct={headlinePct}
-                changeAbs={headlineAbs}
+                pct={pct}
+                changeAbs={abs}
                 currency={currency}
                 fxRate={fxRate}
                 showInrChange={showInrChange}
-                className="!items-start !text-xs sm:!text-sm"
+                className="!items-start !flex-row !gap-1.5 !text-xs sm:!text-sm"
               />
             </div>
           ) : null}
-        </div>
-        {secondary ? (
-          <SessionColumn
-            title={secondary.title}
-            timeLabel={secondary.timeLabel}
-            price={secondary.price}
-            pct={secondary.pct}
-            abs={secondary.abs}
-            currency={currency}
-            fxRate={fxRate}
-            showInrChange={showInrChange}
-            showChange={secondary.showChange}
-            muted
-          />
-        ) : null}
-      </div>
-      {footerParts.length > 0 && (
-        <div className="text-[10px] sm:text-[11px] text-slate-400 leading-relaxed flex flex-wrap gap-x-3 gap-y-1">
-          {footerParts.map((p) => (
-            <span key={p.label}>
-              <span className="text-slate-500">{p.label}</span>{' '}
-              <span className="font-mono tabular-nums text-slate-300">{p.value}</span>
-            </span>
-          ))}
-        </div>
+        </>
+      ) : (
+        <div className="font-mono text-slate-600 text-lg">—</div>
       )}
+      {timeLabel ? (
+        <div className="text-[10px] text-slate-500 mt-1.5 tabular-nums leading-snug">{timeLabel}</div>
+      ) : null}
     </div>
   );
 }
@@ -252,6 +87,80 @@ function TitleRow({ companyName, ticker }) {
       {companyName}{' '}
       <span className="text-slate-400 font-mono text-sm sm:text-base">({ticker})</span>
     </h2>
+  );
+}
+
+function YahooSessionPanels({
+  quote,
+  currency,
+  fxRate,
+  showInrChange,
+  size,
+  panels,
+  companyName,
+  ticker,
+  showTitle,
+  className,
+}) {
+  if (panels.kind === 'historical') {
+    const h = panels.historical;
+    return (
+      <div className={`space-y-2 ${className}`}>
+        {showTitle ? <TitleRow companyName={companyName} ticker={ticker} /> : null}
+        <div className="text-[10px] text-slate-500">{h.meta?.subtitle}</div>
+        <SessionPriceBlock
+          price={h.price}
+          pct={h.pct}
+          abs={null}
+          timeLabel={h.meta?.badge ? `${h.meta.badge} view` : null}
+          currency={currency}
+          fxRate={fxRate}
+          showInrChange={showInrChange}
+          size={size}
+        />
+        <QuoteFooter quote={quote} currency={currency} />
+      </div>
+    );
+  }
+
+  if (panels.kind === 'dual') {
+    return (
+      <div className={`space-y-2 ${className}`}>
+        {showTitle ? <TitleRow companyName={companyName} ticker={ticker} /> : null}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+          <SessionPriceBlock
+            {...panels.atClose}
+            currency={currency}
+            fxRate={fxRate}
+            showInrChange={showInrChange}
+            size={size}
+          />
+          <SessionPriceBlock
+            {...panels.extended}
+            currency={currency}
+            fxRate={fxRate}
+            showInrChange={showInrChange}
+            size={size}
+          />
+        </div>
+        <QuoteFooter quote={quote} currency={currency} />
+      </div>
+    );
+  }
+
+  const row = panels.single ?? panels.atClose;
+  return (
+    <div className={`space-y-2 ${className}`}>
+      {showTitle ? <TitleRow companyName={companyName} ticker={ticker} /> : null}
+      <SessionPriceBlock
+        {...row}
+        currency={currency}
+        fxRate={fxRate}
+        showInrChange={showInrChange}
+        size={size}
+      />
+      <QuoteFooter quote={quote} currency={currency} />
+    </div>
   );
 }
 
@@ -274,165 +183,39 @@ export default function YahooQuoteStrip({
 }) {
   if (!quote) return null;
 
+  const panels = resolveYahooQuotePanels(quote, now, viewBaselineId, viewBaselineDaily);
+  const heroSize = 'hero';
+  const compactSize = size === 'lg' ? 'lg' : 'compact';
+
   if (layout === 'hero') {
     return (
-      <YahooQuoteHero
+      <YahooSessionPanels
         quote={quote}
         currency={currency}
         fxRate={fxRate}
         showInrChange={showInrChange}
+        size={heroSize}
+        panels={panels}
         companyName={companyName ?? 'Marvell Technology, Inc.'}
         ticker={ticker}
+        showTitle
         className={className}
-        now={now}
-        viewBaselineId={viewBaselineId}
-        viewBaselineDaily={viewBaselineDaily}
       />
     );
   }
 
-  const forcedSession = viewBaselineId ? sessionModeFromBaselineId(viewBaselineId) : null;
-  const historicalView = viewBaselineId && watchlistUsesBaselinePct(viewBaselineId);
-  const session = forcedSession ?? resolveActiveSession(quote, now);
-  const showAfter = forcedSession ? forcedSession === 'post' : session === 'post';
-  const showPre = forcedSession ? forcedSession === 'pre' : session === 'pre';
-  const showRegular = historicalView || forcedSession === 'regular' || (!showPre && !showAfter);
-  const regularCell = pickRegularMarketDisplay(quote, now);
-  const regularInr =
-    showInrChange && fxRate != null && regularCell?.price != null
-      ? formatMrvlInrHint(regularCell.price, fxRate)
-      : null;
-  const ext = showAfter
-    ? pickExtendedQuote(quote, 'post')
-    : showPre
-      ? pickExtendedQuote(quote, 'pre')
-      : null;
-  const extInr =
-    showInrChange && fxRate != null && ext?.price != null
-      ? formatMrvlInrHint(ext.price, fxRate)
-      : null;
-
-  const priceClass =
-    size === 'lg'
-      ? 'text-base sm:text-lg font-semibold'
-      : 'text-xs sm:text-sm font-semibold';
-  const labelClass = 'text-[10px] uppercase tracking-wide text-slate-500 font-medium';
-  const rowGap = size === 'lg' ? 'space-y-2.5' : 'space-y-1.5';
-
-  const historicalPrice = historicalView
-    ? pickHeatmapPriceForBaseline(quote, viewBaselineId, viewBaselineDaily)
-  : null;
-  const historicalPct = historicalView
-    ? pickHeatmapChangePctForBaseline(quote, viewBaselineId, viewBaselineDaily)
-    : null;
-  const historicalMeta = historicalView ? heatmapBaselineMeta(viewBaselineId) : null;
-  const forcedRegularPct = forcedSession === 'regular' ? pickHeatmapChangePct(quote, 'regular') : null;
-  const forcedRegularPrice =
-    forcedSession === 'regular' ? pickHeatmapPrice(quote, 'regular') : null;
-
   return (
-    <div className={`${rowGap} ${className}`}>
-      <div>
-        <div className={labelClass}>Previous Close</div>
-        <div className={`mt-0.5 font-mono tabular-nums text-slate-300 ${priceClass}`}>
-          {formatStockPrice(quote.previous_close, currency)}
-        </div>
-      </div>
-      {historicalView ? (
-        <div>
-          <div className={labelClass}>{historicalMeta?.badge ?? 'View'}</div>
-          <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
-            {formatStockPrice(historicalPrice, currency)}
-          </div>
-          <StockPriceChangeLines
-            pct={historicalPct}
-            currency={currency}
-            fxRate={fxRate}
-            showInrChange={showInrChange}
-            className="!items-start mt-0.5"
-          />
-        </div>
-      ) : null}
-      {showRegular && !historicalView ? (
-        <div>
-          <div className={labelClass}>
-            Regular Market
-            {regularCell?.live ? (
-              <span className="text-emerald-400/90 normal-case tracking-normal ml-1">LIVE</span>
-            ) : null}
-          </div>
-          <div className={`mt-0.5 font-mono tabular-nums text-white ${priceClass}`}>
-            {regularCell?.preIdle && !forcedSession ? (
-              <span className="text-slate-500">—</span>
-            ) : (
-              <>
-                {formatStockPrice(
-                  forcedRegularPrice ?? regularCell?.price ?? quote.regular_price,
-                  currency,
-                )}
-                {regularInr && (
-                  <span className="text-violet-300/90 font-normal ml-1 text-[10px] sm:text-xs">
-                    ({regularInr})
-                  </span>
-                )}
-              </>
-            )}
-          </div>
-          {(!regularCell?.preIdle || forcedSession === 'regular') ? (
-            <StockPriceChangeLines
-              quote={quote}
-              pct={forcedRegularPct ?? regularCell?.pct ?? quote.regular_change_pct}
-              changeAbs={regularCell?.abs ?? quote.regular_change_abs}
-              currency={currency}
-              fxRate={fxRate}
-              showInrChange={showInrChange}
-              className="!items-start mt-0.5"
-            />
-          ) : null}
-        </div>
-      ) : null}
-      {showAfter && !historicalView && ext?.price != null && (
-        <div>
-          <div className={labelClass}>After Market</div>
-          <div className={`mt-0.5 font-mono tabular-nums text-violet-100 ${priceClass}`}>
-            {formatStockPrice(ext.price, currency)}
-            {extInr && (
-              <span className="text-violet-300/80 font-normal ml-1 text-[10px] sm:text-xs">
-                ({extInr})
-              </span>
-            )}
-          </div>
-          <StockPriceChangeLines
-            pct={ext.pct}
-            changeAbs={ext.abs}
-            currency={currency}
-            fxRate={fxRate}
-            showInrChange={showInrChange}
-            className="!items-start mt-0.5"
-          />
-        </div>
-      )}
-      {showPre && !historicalView && ext?.price != null && (
-        <div>
-          <div className={labelClass}>Pre-market</div>
-          <div className={`mt-0.5 font-mono tabular-nums text-amber-100 ${priceClass}`}>
-            {formatStockPrice(ext.price, currency)}
-            {extInr && (
-              <span className="text-violet-300/80 font-normal ml-1 text-[10px] sm:text-xs">
-                ({extInr})
-              </span>
-            )}
-          </div>
-          <StockPriceChangeLines
-            pct={ext.pct}
-            changeAbs={ext.abs}
-            currency={currency}
-            fxRate={fxRate}
-            showInrChange={showInrChange}
-            className="!items-start mt-0.5"
-          />
-        </div>
-      )}
-    </div>
+    <YahooSessionPanels
+      quote={quote}
+      currency={currency}
+      fxRate={fxRate}
+      showInrChange={showInrChange}
+      size={compactSize}
+      panels={panels}
+      companyName={companyName}
+      ticker={ticker}
+      showTitle={false}
+      className={className}
+    />
   );
 }
