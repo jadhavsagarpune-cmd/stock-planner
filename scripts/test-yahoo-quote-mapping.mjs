@@ -7,6 +7,7 @@ import {
   resolvePreviousClose,
   resolveRegularMarketPrice,
 } from '../src/lib/quotes.js';
+import { quoteIsRenderable, sanitizeQuotePrices } from '../src/lib/quoteResilience.js';
 
 const ADBE_META_STALE_CHART = {
   symbol: 'ADBE',
@@ -164,6 +165,34 @@ if (Math.abs(gapQuote.regular_change_pct - -11.69) > 0.05) {
 }
 if (Math.abs(gapQuote.previous_close - 122.28) > 0.05) {
   console.error('FAIL MRVL gap display previous_close', gapQuote.previous_close);
+  process.exit(1);
+}
+
+const zeroQuote = sanitizeQuotePrices({
+  symbol: 'MRVL',
+  previous_close: 0,
+  regular_price: 0,
+  postmarket_price: 0,
+  regular_change_pct: -1.2,
+});
+if (!quoteIsRenderable(zeroQuote)) {
+  console.log('OK zero Yahoo prices sanitized (no $0.00 hero)');
+} else {
+  console.error('FAIL zero prices must not be renderable', zeroQuote);
+  process.exit(1);
+}
+
+const v7OnlyMeta = {
+  symbol: 'MRVL',
+  marketState: 'POST',
+  regularMarketPrice: 92.12,
+  regularMarketPreviousClose: 91.44,
+  postMarketPrice: 92.5,
+  postMarketChangePercent: 0.41,
+};
+const v7Only = mapYahooMetaToQuote(v7OnlyMeta, 'MRVL');
+if (!quoteIsRenderable(v7Only) || v7Only.regular_price !== 92.12) {
+  console.error('FAIL v7-only partial quote', v7Only);
   process.exit(1);
 }
 

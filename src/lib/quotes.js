@@ -1,7 +1,10 @@
 import { closedExtendedModeByClock, isUsRegularSessionByClock } from './stockMarketSession.js';
+import { quoteIsRenderable, sanitizeQuotePrices } from './quoteResilience.js';
 
+const YAHOO_HOSTS = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
 const YAHOO_QUOTE_V7 = 'https://query1.finance.yahoo.com/v7/finance/quote';
+const RETRY_HTTP_STATUSES = new Set([429, 500, 502, 503, 504]);
 const HEADERS = {
   Accept: 'application/json',
   'User-Agent':
@@ -62,22 +65,55 @@ function quoteSummaryFetchUrl(symbol) {
   return `/api/quote-summary?symbol=${encodeURIComponent(sym)}`;
 }
 
+function summaryFetchTargets(sym) {
+  const useProxy = !import.meta.env?.DEV && typeof window !== 'undefined';
+  if (useProxy) {
+    return [quoteSummaryFetchUrl(sym)];
+  }
+  const qs = `/v7/finance/quote?symbols=${encodeURIComponent(sym)}`;
+  return YAHOO_HOSTS.map((host) => `https://${host}${qs}`);
+}
+
 async function fetchYahooQuoteSummaryRow(symbol, { signal } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) return null;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const targets = summaryFetchTargets(sym);
+  for (const url of targets) {
     try {
-      const resp = await fetch(quoteSummaryFetchUrl(sym), { headers: HEADERS, signal });
+      const resp = await fetch(url, { headers: HEADERS, signal });
       if (!resp.ok) continue;
       const payload = await resp.json();
       const rows = payload?.quoteResponse?.result;
       if (!Array.isArray(rows) || !rows.length) continue;
       return rows[0];
     } catch {
-      /* retry */
+      /* try next host */
     }
   }
   return null;
+}
+
+async function fetchYahooChartResponse(symbol, { signal } = {}) {
+  const sym = String(symbol || '').trim().toUpperCase();
+  if (!sym) return null;
+  const useProxy = !import.meta.env?.DEV && typeof window !== 'undefined';
+  const chartPath = `/v8/finance/chart/${encodeURIComponent(sym)}?${CHART_QS}`;
+  const targets = useProxy
+    ? [chartFetchUrl(sym)]
+    : YAHOO_HOSTS.map((host) => `https://${host}${chartPath}`);
+
+  let lastResp = null;
+  for (const url of targets) {
+    try {
+      const resp = await fetch(url, { headers: HEADERS, signal });
+      lastResp = resp;
+      if (resp.ok) return resp;
+      if (!RETRY_HTTP_STATUSES.has(resp.status)) return resp;
+    } catch {
+      /* next */
+    }
+  }
+  return lastResp;
 }
 
 /** Overlay v7 quote fields onto chart meta (quote wins for session prices). */
@@ -386,7 +422,7 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     meta.regularMarketChange,
   );
 
-  return {
+  return sanitizeQuotePrices({
     symbol: meta.symbol || symbol,
     currency: meta.currency || (String(symbol).endsWith('.KS') ? 'KRW' : 'USD'),
     market_state: meta.marketState || '',
@@ -413,7 +449,7 @@ export function mapYahooMetaToQuote(meta, sym, chartResult) {
     post_market_time: float(meta.postMarketTime),
     source: 'yahoo_finance',
     chart_result: chartResult ?? null,
-  };
+  });
 }
 
 /**
@@ -424,22 +460,26 @@ export async function fetchYahooQuote(symbol, { signal } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) throw new Error('symbol required');
   const [chartResp, summaryRow] = await Promise.all([
-    fetch(chartFetchUrl(sym), { headers: HEADERS, signal }),
+    fetchYahooChartResponse(sym, { signal }),
     fetchYahooQuoteSummaryRow(sym, { signal }),
   ]);
-  if (chartResp.ok) {
+  let quote = null;
+  if (chartResp?.ok) {
     const payload = await chartResp.json();
     const results = payload?.chart?.result || [];
     if (results.length) {
       const meta = mergeQuoteSummaryIntoMeta(results[0].meta || {}, summaryRow);
-      return mapYahooMetaToQuote(meta, sym, results[0]);
+      quote = mapYahooMetaToQuote(meta, sym, results[0]);
     }
   }
-  if (summaryRow) {
-    const meta = mergeQuoteSummaryIntoMeta({}, summaryRow);
-    return mapYahooMetaToQuote(meta, sym, null);
+  if (!quoteIsRenderable(quote) && summaryRow) {
+    const chartMeta = quote?.chart_result?.meta ?? {};
+    const meta = mergeQuoteSummaryIntoMeta(chartMeta, summaryRow);
+    quote = mapYahooMetaToQuote(meta, sym, quote?.chart_result ?? null);
   }
-  if (!chartResp.ok) throw new Error(`Yahoo HTTP ${chartResp.status}`);
+  if (quoteIsRenderable(quote)) return quote;
+  if (chartResp?.ok === false) throw new Error(`Yahoo HTTP ${chartResp.status}`);
+  if (chartResp == null) throw new Error('Yahoo HTTP 500');
   throw new Error('No quote data');
 }
 

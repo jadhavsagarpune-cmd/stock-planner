@@ -299,6 +299,8 @@ export function formatMrvlInrChangeHint(changeUsd, fxRate) {
 
 export function formatStockPrice(price, currency = 'USD') {
   if (price == null || Number.isNaN(Number(price))) return '—';
+  const n = Number(price);
+  if (n === 0) return '—';
   const cur = (currency || 'USD').toUpperCase();
   const frac = CURRENCY_FRACTIONS[cur] ?? 2;
   try {

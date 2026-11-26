@@ -1,3 +1,4 @@
+import { isDisplayablePrice } from './quoteResilience.js';
 import { deriveExtendedChangeAbs, deriveRegularChangeAbsFromRow } from './stockFormat.js';
 import {
   closedExtendedModeByClock,
@@ -9,6 +10,11 @@ function float(v) {
   if (v == null) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function priceFloat(v) {
+  const n = float(v);
+  return isDisplayablePrice(n) ? n : null;
 }
 
 /** PRE | REG | POST | CLOSED for UI chip (Yahoo metadata + US clock fallback). */
@@ -52,8 +58,8 @@ export function resolveActiveSession(quote, now = new Date()) {
 }
 
 function extendedCurrentPrice(quote) {
-  const c = float(quote?.current_price);
-  const r = float(quote?.regular_price);
+  const c = priceFloat(quote?.current_price);
+  const r = priceFloat(quote?.regular_price);
   if (c == null || r == null || Math.abs(c - r) < 0.005) return null;
   return c;
 }
@@ -64,14 +70,14 @@ function extendedCurrentPrice(quote) {
 export function pickActiveSessionPrice(quote, now = new Date()) {
   if (!quote) return null;
   const session = resolveActiveSession(quote, now);
-  const regular = float(quote.regular_price);
-  const previousClose = float(quote.previous_close);
-  const pre = float(quote.premarket_price) ?? (session === 'pre' ? extendedCurrentPrice(quote) : null);
+  const regular = priceFloat(quote.regular_price);
+  const previousClose = priceFloat(quote.previous_close);
+  const pre = priceFloat(quote.premarket_price) ?? (session === 'pre' ? extendedCurrentPrice(quote) : null);
   const post =
-    float(quote.postmarket_price)
-    ?? float(quote.fullday_price)
+    priceFloat(quote.postmarket_price)
+    ?? priceFloat(quote.fullday_price)
     ?? (session === 'post' ? extendedCurrentPrice(quote) : null);
-  const current = float(quote.current_price);
+  const current = priceFloat(quote.current_price);
 
   if (session === 'pre') {
     return pre ?? current ?? regular ?? previousClose;

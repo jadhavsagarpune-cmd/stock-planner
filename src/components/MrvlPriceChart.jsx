@@ -24,6 +24,7 @@ import {
 } from '../lib/mrvlChartGeometry';
 import MarketStatusChip from './MarketStatusChip';
 import YahooQuoteStrip from './YahooQuoteStrip';
+import { quoteIsRenderable } from '../lib/quoteResilience';
 import { pickActiveSessionPrice, sessionHeadlineLabel } from '../lib/sessionQuote';
 
 const CHART_W = 640;
@@ -238,7 +239,7 @@ export default function MrvlPriceChart({
     return Math.min(92, Math.max(8, (hoverX / CHART_W) * 100));
   }, [hoverX, hoverY]);
 
-  const hasQuote = mrvl?.regular_price != null || mrvl?.previous_close != null;
+  const hasQuote = quoteIsRenderable(mrvl);
   const currency = mrvl?.currency ?? 'USD';
   const rangeChipLabel = rangeSpec.label;
   const basisLine = chartPriceBasisLine(mrvl);
@@ -292,8 +293,12 @@ export default function MrvlPriceChart({
 
       {mrvlErr ? (
         <p className="text-sm text-amber-300 mb-2">{mrvlErr}</p>
-      ) : hasQuote ? (
+      ) : null}
+      {hasQuote ? (
         <div className="space-y-2 mb-3">
+          {mrvlErr ? (
+            <p className="text-[11px] text-slate-500">Showing last known quote until Yahoo recovers.</p>
+          ) : null}
           <YahooQuoteStrip
             layout="hero"
             quote={mrvl}
@@ -315,9 +320,9 @@ export default function MrvlPriceChart({
           )}
           <p className="text-[10px] text-slate-500 leading-snug">{basisLine}</p>
         </div>
-      ) : (
+      ) : !mrvlErr ? (
         <p className="text-sm text-slate-500 mb-2">Loading MRVL…</p>
-      )}
+      ) : null}
 
       <div
         ref={chartWrapRef}

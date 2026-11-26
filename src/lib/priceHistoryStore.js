@@ -103,7 +103,7 @@ export async function recordQuoteSnapshot(it) {
   await txDone(tx);
 }
 
-async function getLatestSnapshot(symbol) {
+export async function getLatestSnapshot(symbol) {
   const db = await openDb();
   if (!db) return null;
   const sym = String(symbol || '').trim().toUpperCase();
@@ -115,6 +115,53 @@ async function getLatestSnapshot(symbol) {
     req.onsuccess = () => resolve(req.result?.value ?? null);
     req.onerror = () => reject(req.error);
   });
+}
+
+const LAST_GOOD_LS_PREFIX = 'stock-planner:last-quote:';
+
+/** Persist last good MRVL (or any symbol) quote when IndexedDB is cold. */
+export function saveLastGoodQuote(symbol, quote) {
+  if (typeof localStorage === 'undefined' || !quote) return;
+  const sym = String(symbol || '').trim().toUpperCase();
+  try {
+    localStorage.setItem(
+      `${LAST_GOOD_LS_PREFIX}${sym}`,
+      JSON.stringify({ savedAt: Date.now(), quote }),
+    );
+  } catch {
+    /* quota */
+  }
+}
+
+export function loadLastGoodQuote(symbol) {
+  if (typeof localStorage === 'undefined') return null;
+  const sym = String(symbol || '').trim().toUpperCase();
+  try {
+    const raw = localStorage.getItem(`${LAST_GOOD_LS_PREFIX}${sym}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.quote ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Rehydrate a minimal quote row from an IndexedDB snapshot. */
+export function quoteFromSnapshot(snapshot) {
+  if (!snapshot?.price) return null;
+  return {
+    symbol: snapshot.symbol,
+    currency: 'USD',
+    market_state: '',
+    previous_close: snapshot.previous_close ?? null,
+    regular_price: snapshot.regular_price ?? snapshot.price,
+    regular_change_abs: null,
+    regular_change_pct: null,
+    current_price: snapshot.price,
+    postmarket_price: null,
+    premarket_price: null,
+    source: 'stale_cache',
+  };
 }
 
 /** Rolling capture for all done rows. */

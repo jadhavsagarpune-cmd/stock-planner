@@ -7,8 +7,14 @@ import { mergeLivePriceIntoBars, pickLiveChartPrice } from './chartLiveMerge';
 
 export { mergeLivePriceIntoBars, pickLiveChartPrice };
 
+const YAHOO_HOSTS = ['query1.finance.yahoo.com', 'query2.finance.yahoo.com'];
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart/{symbol}';
-const HEADERS = { Accept: 'application/json' };
+const HEADERS = {
+  Accept: 'application/json',
+  'User-Agent':
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+};
+const RETRY_HTTP_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_PARALLEL = 6;
 const DEFAULT_RANGE = '3mo';
 const DEFAULT_INTERVAL = '1d';
@@ -91,10 +97,32 @@ export async function fetchYahooChartCloses(
 ) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!sym) throw new Error('symbol required');
-  const resp = await fetch(chartHistoryUrl(sym, range, interval), { headers: HEADERS, signal });
-  if (!resp.ok) throw new Error(`Yahoo HTTP ${resp.status}`);
-  const payload = await resp.json();
-  return parseYahooChartClosesPayload(payload);
+  const qs = [
+    `interval=${encodeURIComponent(interval)}`,
+    `range=${encodeURIComponent(range)}`,
+    'includePrePost=true',
+  ].join('&');
+  const chartPath = `/v8/finance/chart/${encodeURIComponent(sym)}?${qs}`;
+  const useProxy = !import.meta.env.DEV && typeof window !== 'undefined';
+  const targets = useProxy
+    ? [chartHistoryUrl(sym, range, interval)]
+    : YAHOO_HOSTS.map((host) => `https://${host}${chartPath}`);
+
+  let lastStatus = 0;
+  for (const url of targets) {
+    try {
+      const resp = await fetch(url, { headers: HEADERS, signal });
+      lastStatus = resp.status;
+      if (resp.ok) {
+        const payload = await resp.json();
+        return parseYahooChartClosesPayload(payload);
+      }
+      if (!RETRY_HTTP_STATUSES.has(resp.status)) break;
+    } catch {
+      /* next host */
+    }
+  }
+  throw new Error(`Yahoo HTTP ${lastStatus || 500}`);
 }
 
 /** @returns {Promise<{ t: number, close: number }[]>} */

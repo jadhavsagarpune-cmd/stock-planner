@@ -27,7 +27,14 @@ import {
   saveHeatmapBaselineId,
 } from './lib/heatmapBaselines';
 import { prefetchDailyBarsForSymbols } from './lib/historicalQuotes';
-import { recordQuoteSnapshots } from './lib/priceHistoryStore';
+import {
+  getLatestSnapshot,
+  loadLastGoodQuote,
+  quoteFromSnapshot,
+  recordQuoteSnapshots,
+  saveLastGoodQuote,
+} from './lib/priceHistoryStore';
+import { formatQuoteFetchError, quoteIsRenderable } from './lib/quoteResilience';
 
 const MRVL_POLL_MS = 60_000;
 const EXTENDED_WATCHLIST_POLL_MS = 60_000;
@@ -37,7 +44,10 @@ const USD_INR_POLL_MS = 5 * 60_000;
 export default function App() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [mrvl, setMrvl] = useState(null);
+  const [mrvl, setMrvl] = useState(() => {
+    const cached = loadLastGoodQuote('MRVL');
+    return quoteIsRenderable(cached) ? cached : null;
+  });
   const [mrvlErr, setMrvlErr] = useState('');
   const [usdInr, setUsdInr] = useState(null);
   const [usdInrErr, setUsdInrErr] = useState('');
@@ -80,8 +90,10 @@ export default function App() {
   const refreshMrvl = useCallback(async () => {
     try {
       const q = await fetchMrvlQuote();
+      if (!quoteIsRenderable(q)) throw new Error('No quote data');
       setMrvl(q);
       setMrvlErr('');
+      saveLastGoodQuote('MRVL', q);
       if (notifyOn) {
         notifyStockMoveIfNeeded({
           symbol: 'MRVL',
@@ -90,7 +102,29 @@ export default function App() {
         });
       }
     } catch (e) {
-      setMrvlErr(e.message || 'Quote failed');
+      setMrvlErr(formatQuoteFetchError(e));
+      let recovered = false;
+      setMrvl((prev) => {
+        if (quoteIsRenderable(prev)) {
+          recovered = true;
+          return prev;
+        }
+        const fromLs = loadLastGoodQuote('MRVL');
+        if (quoteIsRenderable(fromLs)) {
+          recovered = true;
+          return fromLs;
+        }
+        return prev;
+      });
+      if (!recovered) {
+        try {
+          const snap = await getLatestSnapshot('MRVL');
+          const fromIdb = quoteFromSnapshot(snap);
+          if (quoteIsRenderable(fromIdb)) setMrvl(fromIdb);
+        } catch {
+          /* IndexedDB optional */
+        }
+      }
     }
   }, [notifyOn]);
 
