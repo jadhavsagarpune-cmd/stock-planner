@@ -7,14 +7,17 @@ import tailwindcss from '@tailwindcss/vite';
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
-let buildSha = 'dev';
-try {
-  buildSha = execSync('git rev-parse --short HEAD', { cwd: appRoot })
-    .toString()
-    .trim();
-} catch {
-  buildSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'dev';
+let buildSha = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || '';
+if (!buildSha) {
+  try {
+    buildSha = execSync('git rev-parse --short HEAD', { cwd: appRoot, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    /* no git */
+  }
 }
+buildSha = buildSha || 'dev';
 
 export default defineConfig({
   root: appRoot,

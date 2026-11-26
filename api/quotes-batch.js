@@ -1,11 +1,9 @@
 import { yahooFetch, fetchStooqQuoteMeta } from './_yahooUpstream.js';
-import {
-  mergeYahooExtendedFields,
-  yahooChartMetaForSymbol,
-} from './_mergeYahooExtended.js';
+import { fetchChartQuoteRow } from './_chartQuote.js';
 
 const MAX_SYMBOLS = 80;
-const CHUNK = 40;
+const CONCURRENCY = 10;
+const DEADLINE_MS = 22_000;
 
 function parseSymbols(raw) {
   const s = Array.isArray(raw) ? raw[0] : raw || '';
@@ -32,46 +30,48 @@ export default async function handler(req, res) {
     return;
   }
 
+  const started = Date.now();
   const bySymbol = {};
-  const missing = new Set(symbols);
+  const sources = {};
+
+  async function one(sym) {
+    let row = await fetchChartQuoteRow(sym, yahooFetch, { timeoutMs: 5_000 });
+    if (row) {
+      sources[sym] = 'yahoo_chart';
+    } else if (Date.now() - started < DEADLINE_MS - 6_000) {
+      row = await fetchStooqQuoteMeta(sym);
+      if (row) sources[sym] = 'stooq';
+    }
+    if (row) bySymbol[sym] = row;
+  }
 
   try {
-    for (let i = 0; i < symbols.length; i += CHUNK) {
-      const chunk = symbols.slice(i, i + CHUNK);
-      const path = `/v7/finance/quote?symbols=${encodeURIComponent(chunk.join(','))}`;
-      try {
-        const upstream = await yahooFetch(path);
-        if (!upstream?.ok) continue;
-        const payload = await upstream.json();
-        const rows = payload?.quoteResponse?.result;
-        if (!Array.isArray(rows)) continue;
-        for (const row of rows) {
-          const sym = String(row?.symbol || '').trim().toUpperCase();
-          if (!sym) continue;
-          bySymbol[sym] = row;
-          missing.delete(sym);
+    let idx = 0;
+    const worker = async () => {
+      while (idx < symbols.length && Date.now() - started < DEADLINE_MS) {
+        const sym = symbols[idx];
+        idx += 1;
+        try {
+          await one(sym);
+        } catch {
+          /* symbol stays missing */
         }
-      } catch {
-        /* chunk failed — per-symbol stooq below */
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, symbols.length) }, worker));
 
-    await Promise.all(
-      [...missing].map(async (sym) => {
-        let meta = await fetchStooqQuoteMeta(sym);
-        if (!meta) return;
-        const chartMeta = await yahooChartMetaForSymbol(sym, yahooFetch);
-        if (chartMeta) meta = mergeYahooExtendedFields(meta, chartMeta);
-        bySymbol[sym] = meta;
-      }),
+    const found = Object.keys(bySymbol);
+    res.setHeader(
+      'Cache-Control',
+      found.length ? 's-maxage=20, stale-while-revalidate=60' : 'no-store',
     );
-
-    res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=60');
-    res.setHeader('X-Quote-Source', Object.keys(bySymbol).length ? 'mixed' : 'empty');
+    res.setHeader('X-Quote-Source', found.length ? 'mixed' : 'empty');
     res.status(200).json({
       quoteResponse: { result: symbols.map((sym) => bySymbol[sym]).filter(Boolean) },
       symbols,
-      found: Object.keys(bySymbol),
+      found,
+      sources,
+      missing: symbols.filter((s) => !bySymbol[s]),
     });
   } catch (err) {
     res.status(502).json({ error: String(err?.message || err) });

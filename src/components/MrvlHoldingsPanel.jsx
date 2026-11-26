@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react';
-import { pickActiveSessionPrice, sessionHeadlineLabel } from '../lib/sessionQuote';
+import { pickActiveSessionPrice } from '../lib/sessionQuote';
 import MarketStatusChip from './MarketStatusChip';
 import {
   mrvlHoldingsValuationPrice,
@@ -71,7 +71,6 @@ export default function MrvlHoldingsPanel({
   const shareCount = parsePositiveNumber(shares);
   const customPrice = parsePositiveNumber(customUsd);
   const liveUsd = mrvl ? pickActiveSessionPrice(mrvl) : null;
-  const headlineLabel = mrvl ? sessionHeadlineLabel(mrvl) : 'Quote';
   const currency = mrvl?.currency || 'USD';
   const priceUsd = mrvlHoldingsValuationPrice(customPrice, liveUsd);
   const priceDelta = mrvlLiveVsCustomDelta(customPrice, liveUsd, { eps: PRICE_DELTA_EPS });
@@ -170,7 +169,7 @@ export default function MrvlHoldingsPanel({
               {mrvl ? <MarketStatusChip quote={mrvl} /> : null}
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Compare live MRVL to your cost basis · INR uses custom price when set
+              Live MRVL vs your cost basis
             </p>
           </div>
           <button
@@ -188,7 +187,7 @@ export default function MrvlHoldingsPanel({
             <div className="rounded-lg border border-slate-700/60 bg-slate-950/50 px-2.5 py-2 space-y-1">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-[10px] uppercase tracking-wide text-slate-500 shrink-0">
-                  Quote %
+                  Filter
                 </span>
                 <span
                   className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold shrink-0 ${quoteViewMeta.badgeClass}`}
@@ -200,7 +199,8 @@ export default function MrvlHoldingsPanel({
                 baselineId={baselineId}
                 onBaselineChange={onBaselineChange}
                 theme="slate"
-                ariaLabel="MRVL holdings quote baselines"
+                ariaLabel="Holdings filter"
+                clockSession={extendedMode}
               />
             </div>
           ) : null}
@@ -208,7 +208,7 @@ export default function MrvlHoldingsPanel({
             <div className="grid grid-cols-1 min-[380px]:grid-cols-2 gap-3 min-[380px]:gap-4">
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wide text-slate-400 font-medium mb-1">
-                  Quote · {headlineLabel} · {quoteViewMeta.badge}
+                  Quote
                 </div>
                 {mrvl ? (
                   <YahooQuoteStrip
@@ -217,8 +217,6 @@ export default function MrvlHoldingsPanel({
                     fxRate={fxRate}
                     showInrChange
                     size="lg"
-                    viewBaselineId={baselineId}
-                    viewBaselineDaily={mrvlDaily}
                   />
                 ) : (
                   <p className="text-sm text-slate-500">Waiting for MRVL quote…</p>
@@ -236,7 +234,7 @@ export default function MrvlHoldingsPanel({
                   )}
                 </div>
                 <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">
-                  Optional override for your entry / average
+                  Your entry / average
                 </p>
               </div>
             </div>
@@ -423,10 +421,7 @@ export default function MrvlHoldingsPanel({
         </div>
 
         <p className="px-4 pb-1 text-[10px] text-slate-500 leading-snug">
-          INR total and per-share rows use{' '}
-          <span className="text-slate-400">custom price</span> when set; otherwise{' '}
-          <span className="text-slate-400">live quote</span>. Sector heatmap and watchlist
-          tables use live quotes only (not your custom price).
+          INR totals use the custom price when set, otherwise the live quote.
         </p>
 
         <div className="px-4 pb-4">

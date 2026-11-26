@@ -23,10 +23,13 @@ export function isSessionBaselineId(baselineId) {
  * Watchlist column mode: session baselines override US clock; otherwise follow clock.
  */
 export function resolveWatchlistExtendedMode(baselineId, clockExtendedMode) {
+  if (baselineId === 'live') {
+    // LIVE = regular session vs previous close: live tick in RTH, last close otherwise.
+    return clockExtendedMode === 'regular' ? 'regular' : 'holiday';
+  }
   const forced = sessionModeFromBaselineId(baselineId);
   if (forced === 'pre') return 'pre';
   if (forced === 'post') return 'post';
-  if (clockExtendedMode === 'holiday') return 'holiday';
   return clockExtendedMode;
 }
 
@@ -41,31 +44,25 @@ export function watchlistActiveColumnMeta(baselineId, clockExtendedMode) {
     const meta = heatmapBaselineMeta(baselineId, clockExtendedMode);
     return {
       label: meta.badge,
-      subtitle: meta.badge === 'PREV' ? 'vs prior close' : 'vs reference',
-      title: meta.subtitle,
+      subtitle: meta.base?.subtitle ?? '',
+      title: meta.base?.subtitle ?? '',
     };
   }
   const mode = resolveWatchlistExtendedMode(baselineId, clockExtendedMode);
   if (mode === 'regular') {
+    return { label: 'Live', subtitle: 'vs previous close', title: 'Regular session vs previous close' };
+  }
+  if (mode === 'holiday') {
     return {
-      label: 'Live',
-      subtitle: 'vs Previous Close',
-      title:
-        'Regular Market live price · day change vs Previous Close (LIVE baseline)',
+      label: 'Last close',
+      subtitle: 'vs previous close',
+      title: 'Last regular session vs previous close',
     };
   }
   if (mode === 'post') {
-    return {
-      label: 'After Market',
-      subtitle: 'vs Previous Close',
-      title: 'After Market price · vs Previous Close',
-    };
+    return { label: 'After hours', subtitle: 'vs at close', title: 'After hours vs at close' };
   }
-  return {
-    label: 'Pre-market',
-    subtitle: 'vs Previous Close',
-    title: 'Pre-market price · vs Previous Close',
-  };
+  return { label: 'Pre-market', subtitle: 'vs at close', title: 'Pre-market vs at close' };
 }
 
 export function watchlistRowChangePct(it, baselineId, clockExtendedMode, daily = null) {

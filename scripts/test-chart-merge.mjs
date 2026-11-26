@@ -99,19 +99,15 @@ if (merged1d.length !== 1 || merged1d[0].close !== 80.75) {
   process.exit(1);
 }
 
-const histSrc = readFileSync(
-  new URL('../src/lib/historicalQuotes.js', import.meta.url),
+const baselineSrc = readFileSync(
+  new URL('../src/lib/heatmapBaselines.js', import.meta.url),
   'utf8',
 );
-if (
-  !histSrc.includes("id: 'LIVE'")
-  || !/^\s*\{ id: '1D', label: '1D', range: '1d', interval: '5m' \},/m.test(histSrc)
-  || !histSrc.includes("export const DEFAULT_MRVL_CHART_RANGE_ID = 'LIVE';")
-  || !histSrc.includes('defaultMrvlChartRangeIdForClock')
-  || !histSrc.includes("export const MRVL_CHART_CHIP_IDS = ['LIVE', '1D',")
-) {
-  console.error('FAIL LIVE / 1D range chips / default in historicalQuotes.js');
-  process.exit(1);
+for (const id of ['live', 'pre', 'post', 'previous_close', '1d', '3d', '5d', '7d', '15d', '1mo', '3mo', 'ytd']) {
+  if (!baselineSrc.includes(`id: '${id}'`)) {
+    console.error('FAIL missing baseline filter', id);
+    process.exit(1);
+  }
 }
 
 if (barIndexToSvgX(0, 3, 8, 100) !== 8) {

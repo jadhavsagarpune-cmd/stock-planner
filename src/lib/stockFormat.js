@@ -7,8 +7,7 @@ import {
 import { isDisplayablePrice } from './quoteResilience.js';
 
 /** Watchlist helper copy (Yahoo column semantics). */
-export const WATCHLIST_YAHOO_LEGEND =
-  'Two columns: Previous Close + session price (Pre-market · Live · After Market) — labels change with the US session';
+export const WATCHLIST_YAHOO_LEGEND = '';
 
 /** Pre vs last regular session price (not vs prior close). */
 export function preChangePctVsRegular(premarketPrice, regularPrice) {

@@ -6,6 +6,7 @@ import {
 } from './stockFormat.js';
 import {
   closedExtendedModeByClock,
+  easternYmd,
   heatmapSessionMeta,
   isUsRegularSessionByClock,
   normalizeMarketState,
@@ -15,76 +16,110 @@ import {
 export const HEATMAP_BASELINE_STORAGE_KEY = 'stock-planner.heatmapBaseline';
 export const HEATMAP_BASELINE_USER_PICKED_KEY = 'stock-planner.heatmapBaselineUserPicked';
 
-/** Heatmap % reference options (independent of watchlist session column). */
+/** % reference options shared by heatmap, watchlist, hero chart and holdings (one consistent set). */
 export const HEATMAP_BASELINES = [
   {
     id: 'live',
     label: 'Live',
     badge: 'LIVE',
-    subtitle: 'Regular session % vs previous close (Yahoo day change)',
-    needsSessionPrice: true,
+    subtitle: 'Regular session vs previous close',
     sessionMode: 'regular',
+    chart: { range: '1d', interval: '5m' },
   },
   {
     id: 'pre',
     label: 'Pre-market',
     badge: 'PRE',
-    subtitle: 'Pre-market % vs previous close',
-    needsSessionPrice: true,
+    subtitle: 'Pre-market vs at close',
     sessionMode: 'pre',
+    chart: { range: '1d', interval: '5m' },
   },
   {
     id: 'post',
-    label: 'After Market',
+    label: 'After hours',
     badge: 'AFTER',
-    subtitle: 'After-hours % vs regular session close',
-    needsSessionPrice: true,
+    subtitle: 'After hours vs at close',
     sessionMode: 'post',
+    chart: { range: '1d', interval: '5m' },
   },
   {
     id: 'previous_close',
     label: 'Previous close',
     badge: 'PREV',
-    subtitle: '% vs prior session close (today)',
+    subtitle: 'Latest price vs previous close',
+    chart: { range: '1d', interval: '5m' },
   },
   {
     id: '1d',
     label: '1 day',
     badge: '1D',
-    subtitle: '% vs prior trading day close',
+    subtitle: 'vs close 1 session ago',
     tradingDaysBack: 1,
+    chart: { range: '1d', interval: '5m' },
   },
   {
     id: '3d',
     label: '3 days',
     badge: '3D',
-    subtitle: '% vs close 3 sessions ago',
+    subtitle: 'vs close 3 sessions ago',
     tradingDaysBack: 3,
+    chart: { range: '5d', interval: '15m' },
   },
   {
     id: '5d',
     label: '5 days',
     badge: '5D',
-    subtitle: '% vs close 5 sessions ago',
+    subtitle: 'vs close 5 sessions ago',
     tradingDaysBack: 5,
+    chart: { range: '5d', interval: '15m' },
+  },
+  {
+    id: '7d',
+    label: '7 days',
+    badge: '7D',
+    subtitle: 'vs close 7 sessions ago',
+    tradingDaysBack: 7,
+    chart: { range: '1mo', interval: '1d' },
   },
   {
     id: '15d',
     label: '15 days',
     badge: '15D',
-    subtitle: '% vs close 15 sessions ago',
+    subtitle: 'vs close 15 sessions ago',
     tradingDaysBack: 15,
+    chart: { range: '1mo', interval: '1d' },
   },
   {
     id: '1mo',
     label: '1 month',
     badge: '1M',
-    subtitle: '% vs ~1 month ago close',
+    subtitle: 'vs close 1 month ago',
     calendarDaysBack: 30,
+    chart: { range: '1mo', interval: '1d' },
+  },
+  {
+    id: '3mo',
+    label: '3 months',
+    badge: '3M',
+    subtitle: 'vs close 3 months ago',
+    calendarDaysBack: 91,
+    chart: { range: '3mo', interval: '1d' },
+  },
+  {
+    id: 'ytd',
+    label: 'Year to date',
+    badge: 'YTD',
+    subtitle: 'vs last close of previous year',
+    ytd: true,
+    chart: { range: 'ytd', interval: '1d' },
   },
 ];
 
-/** Session chips (LIVE / PRE / POST) vs multi-day reference chips. */
+export function isValidHeatmapBaselineId(id) {
+  return typeof id === 'string' && HEATMAP_BASELINES.some((b) => b.id === id);
+}
+
+/** Session chips (LIVE / PRE / AFTER) vs multi-day reference chips. */
 export function heatmapBaselinePickerGroups() {
   const session = [];
   const history = [];
@@ -95,7 +130,10 @@ export function heatmapBaselinePickerGroups() {
   return { session, history };
 }
 
-/** First-visit default: RTH → live, pre → pre, post → post, NYSE holiday → previous_close. */
+/**
+ * Default by US session clock: regular hours → LIVE, pre → PRE, after hours → AFTER,
+ * NYSE holiday → PREV. LIVE is never the default outside regular hours.
+ */
 export function defaultHeatmapBaselineIdForClock(now = new Date()) {
   const ext = closedExtendedModeByClock(now);
   if (ext === 'holiday') return 'previous_close';
@@ -104,26 +142,36 @@ export function defaultHeatmapBaselineIdForClock(now = new Date()) {
   return 'post';
 }
 
-export function heatmapBaselineUserPicked() {
+/** A manual pick is remembered for the current US/Eastern calendar day only. */
+function pickStamp(now = new Date()) {
+  return `d:${easternYmd(now)}`;
+}
+
+export function heatmapBaselineUserPicked(now = new Date()) {
   try {
-    return localStorage.getItem(HEATMAP_BASELINE_USER_PICKED_KEY) === '1';
+    return localStorage.getItem(HEATMAP_BASELINE_USER_PICKED_KEY) === pickStamp(now);
   } catch {
     return false;
   }
 }
 
+function clearStoredBaseline() {
+  try {
+    localStorage.removeItem(HEATMAP_BASELINE_STORAGE_KEY);
+    localStorage.removeItem(HEATMAP_BASELINE_USER_PICKED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Validate stored values (legacy '1' flags, unknown ids, stale-day picks) → always a valid id. */
 export function loadHeatmapBaselineId(now = new Date()) {
   const derived = defaultHeatmapBaselineIdForClock(now);
   try {
-    const userPicked = heatmapBaselineUserPicked();
     const v = localStorage.getItem(HEATMAP_BASELINE_STORAGE_KEY);
-    if (userPicked && v && HEATMAP_BASELINES.some((b) => b.id === v)) return v;
-    if (!userPicked && v !== derived) {
-      try {
-        localStorage.setItem(HEATMAP_BASELINE_STORAGE_KEY, derived);
-      } catch {
-        /* ignore */
-      }
+    if (heatmapBaselineUserPicked(now) && isValidHeatmapBaselineId(v)) return v;
+    if (v != null || localStorage.getItem(HEATMAP_BASELINE_USER_PICKED_KEY) != null) {
+      clearStoredBaseline();
     }
   } catch {
     /* ignore */
@@ -137,9 +185,10 @@ function baselineSessionMode(baselineId) {
 }
 
 export function saveHeatmapBaselineId(id) {
+  if (!isValidHeatmapBaselineId(id)) return;
   try {
     localStorage.setItem(HEATMAP_BASELINE_STORAGE_KEY, id);
-    localStorage.setItem(HEATMAP_BASELINE_USER_PICKED_KEY, '1');
+    localStorage.setItem(HEATMAP_BASELINE_USER_PICKED_KEY, pickStamp());
   } catch {
     /* ignore */
   }
@@ -155,16 +204,13 @@ export function heatmapBaselineMeta(baselineId, clockExtendedMode = 'regular') {
     'bg-emerald-950/80 text-emerald-300 border-emerald-600/50 ring-1 ring-emerald-500/30';
   if (base.id === 'live') {
     const rth = clockExtendedMode === 'regular';
-  const liveSubtitle = rth
-      ? 'Regular session % vs previous close · clustered by move'
-      : clockExtendedMode === 'holiday'
-        ? 'Last regular session % vs previous close · market holiday'
-        : 'Regular session day % vs previous close (session not open for live ticks)';
     return {
       badge: 'LIVE',
-      title: rth ? 'Market heatmap · Live' : 'Market heatmap · Live (last close)',
-      subtitle: liveSubtitle,
-      badgeClass: liveBadgeClass,
+      title: 'Market heatmap · Live',
+      subtitle: rth
+        ? 'Regular session vs previous close'
+        : 'Last regular session vs previous close (market not open)',
+      badgeClass: rth ? liveBadgeClass : 'bg-slate-800/80 text-slate-300 border-slate-600/50',
       base,
     };
   }
@@ -236,6 +282,18 @@ function closeAtCalendarDaysAgo(bars, calendarDays) {
   return chosen?.close ?? null;
 }
 
+/** Last close before Jan 1 of the current year (falls back to first bar of the year). */
+function closeAtYearStart(bars, now = new Date()) {
+  if (!bars?.length) return null;
+  const jan1 = Date.UTC(now.getUTCFullYear(), 0, 1);
+  let chosen = null;
+  for (const bar of bars) {
+    if (bar.t < jan1) chosen = bar;
+    else break;
+  }
+  return (chosen ?? bars[0])?.close ?? null;
+}
+
 /**
  * @param {object} it — watchlist row
  * @param {string} baselineId
@@ -267,11 +325,13 @@ export function pickHeatmapChangePctForBaseline(it, baselineId, daily = null) {
   const current = pickCurrentHeatmapPrice(it);
   const bars = daily?.bars;
   const spec = HEATMAP_BASELINES.find((b) => b.id === baselineId);
-  if (!spec?.tradingDaysBack && !spec?.calendarDaysBack) return null;
+  if (!spec?.tradingDaysBack && !spec?.calendarDaysBack && !spec?.ytd) return null;
   if (!bars?.length) return null;
 
   let baseClose = null;
-  if (spec.tradingDaysBack != null) {
+  if (spec.ytd) {
+    baseClose = closeAtYearStart(bars);
+  } else if (spec.tradingDaysBack != null) {
     baseClose = closeAtTradingDaysAgo(bars, spec.tradingDaysBack);
   } else if (spec.calendarDaysBack != null) {
     baseClose = closeAtCalendarDaysAgo(bars, spec.calendarDaysBack);
@@ -315,5 +375,5 @@ export function formatHeatmapTileTitleForBaseline(
 
 export function baselineNeedsDailyHistory(baselineId) {
   const spec = HEATMAP_BASELINES.find((b) => b.id === baselineId);
-  return Boolean(spec?.tradingDaysBack || spec?.calendarDaysBack);
+  return Boolean(spec?.tradingDaysBack || spec?.calendarDaysBack || spec?.ytd);
 }

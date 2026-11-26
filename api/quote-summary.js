@@ -1,8 +1,11 @@
 import { yahooFetch, fetchStooqQuoteMeta } from './_yahooUpstream.js';
-import {
-  mergeYahooExtendedFields,
-  yahooChartMetaForSymbol,
-} from './_mergeYahooExtended.js';
+import { fetchChartQuoteRow } from './_chartQuote.js';
+
+function send(res, row, source, cache) {
+  res.setHeader('X-Quote-Source', source);
+  res.setHeader('Cache-Control', cache);
+  res.status(200).json({ quoteResponse: { result: [row] }, _source: source });
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -18,49 +21,22 @@ export default async function handler(req, res) {
     return;
   }
 
-  const path = `/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
-
   try {
-    const upstream = await yahooFetch(path);
-    if (upstream?.ok) {
-      const payload = await upstream.json();
-      const row = payload?.quoteResponse?.result?.[0];
-      if (row) {
-        res.setHeader('X-Quote-Source', 'yahoo_v7');
-        res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=45');
-        res.status(200).json(payload);
-        return;
-      }
-    }
-    let stooqMeta = await fetchStooqQuoteMeta(symbol);
-    if (stooqMeta) {
-      const chartMeta = await yahooChartMetaForSymbol(symbol, yahooFetch);
-      if (chartMeta) stooqMeta = mergeYahooExtendedFields(stooqMeta, chartMeta);
-      res.setHeader('X-Quote-Source', chartMeta ? 'stooq+yahoo_ext' : 'stooq');
-      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
-      res.status(200).json({
-        quoteResponse: { result: [stooqMeta] },
-        _source: 'stooq',
-      });
+    // Chart v8 first (works on Vercel; includes pre/post bars). v7 needs a crumb and often fails.
+    const chartRow = await fetchChartQuoteRow(symbol, yahooFetch, { timeoutMs: 5_000 });
+    if (chartRow) {
+      send(res, chartRow, 'yahoo_chart', 's-maxage=15, stale-while-revalidate=45');
       return;
     }
-    res.status(upstream?.status || 502).json({
-      error: `Yahoo HTTP ${upstream?.status || 502}`,
-      quoteResponse: { result: [] },
-    });
+    const stooq = await fetchStooqQuoteMeta(symbol);
+    if (stooq) {
+      send(res, stooq, 'stooq', 's-maxage=60, stale-while-revalidate=120');
+      return;
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(502).json({ error: 'No quote from Yahoo chart or Stooq', quoteResponse: { result: [] } });
   } catch (err) {
-    let stooqMeta = await fetchStooqQuoteMeta(symbol);
-    if (stooqMeta) {
-      const chartMeta = await yahooChartMetaForSymbol(symbol, yahooFetch);
-      if (chartMeta) stooqMeta = mergeYahooExtendedFields(stooqMeta, chartMeta);
-      res.setHeader('X-Quote-Source', chartMeta ? 'stooq+yahoo_ext' : 'stooq');
-      res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
-      res.status(200).json({
-        quoteResponse: { result: [stooqMeta] },
-        _source: 'stooq',
-      });
-      return;
-    }
-    res.status(502).json({ error: String(err?.message || err) });
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(502).json({ error: String(err?.message || err), quoteResponse: { result: [] } });
   }
 }

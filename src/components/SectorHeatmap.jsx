@@ -6,11 +6,7 @@ import {
   heatmapBaselineMeta,
   pickHeatmapChangePctForBaseline,
 } from '../lib/heatmapBaselines';
-import {
-  MarketBaselineHistoryRow,
-  MarketBaselineSessionRow,
-  UsSessionNowPill,
-} from './MarketBaselineChips';
+import { MarketBaselineAllRow } from './MarketBaselineChips';
 import { MARVELL_ACCENT_RING, isMarvellCompany } from '../lib/marvellBrand';
 import { MarvellTickerBadge } from './MarvellMarker';
 
@@ -43,7 +39,7 @@ const CHANGE_BUCKETS = [
   {
     id: 'flat',
     label: 'Flat',
-    subtitle: '0–1%',
+    subtitle: '−1% to 1%',
     match: (n) => n >= -1 && n <= 1,
   },
   {
@@ -176,32 +172,22 @@ export default function SectorHeatmap({
             </h2>
             <span
               className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-bold tracking-wider shrink-0 ${session.badgeClass}`}
-              title="Selected baseline filter"
+              title={session.subtitle}
             >
               {session.badge}
             </span>
-            <UsSessionNowPill clockSession={extendedMode} />
-            <MarketBaselineSessionRow
-              baselineId={baselineId}
-              onBaselineChange={onBaselineChange}
-              theme="violet"
-              clockSession={extendedMode}
-            />
             {needsHistory && !historyReady && (
               <span className="text-[10px] text-amber-400/90 shrink-0">Loading history…</span>
             )}
           </div>
-          <MarketBaselineHistoryRow
+          <MarketBaselineAllRow
             baselineId={baselineId}
             onBaselineChange={onBaselineChange}
             theme="violet"
+            ariaLabel="Heatmap filter"
+            clockSession={extendedMode}
           />
-          <p className="text-[10px] text-slate-500 leading-snug">
-            {session.subtitle}
-            {needsHistory
-              ? ' · Daily closes cached locally (IndexedDB); snapshots recorded on each refresh.'
-              : ''}
-          </p>
+          <p className="text-[10px] text-slate-500 leading-snug">{session.subtitle}</p>
         </div>
       </div>
       <div className="space-y-3">
@@ -240,7 +226,7 @@ export default function SectorHeatmap({
           <div>
             <div className="flex items-baseline gap-2 mb-1.5 border-b border-slate-700/60 pb-1">
               <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
-                Pending / no quote
+                No quote
               </p>
               <span className="text-[10px] text-slate-600 ml-auto tabular-nums">
                 {noData.length}

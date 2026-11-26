@@ -47,7 +47,7 @@ export function MarketBaselineChip({
       className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold tracking-wide transition-colors ${className} ${
         active ? t.active : t.idle
       } ${ring}`}
-      title={clockNow ? `${b.subtitle} · US session now` : b.subtitle}
+      title={clockNow ? `${b.subtitle} · current session` : b.subtitle}
       aria-pressed={active}
     >
       {b.badge}
@@ -105,13 +105,14 @@ export function MarketBaselineSessionRow({
   );
 }
 
-/** Single scroll row: LIVE · PRE · POST · PREV · 1D · … */
+/** Single scroll row: LIVE · PRE · AFTER · PREV · 1D · 3D · 5D · 7D · 15D · 1M · 3M · YTD */
 export function MarketBaselineAllRow({
   baselineId,
   onBaselineChange,
   theme = 'violet',
   ariaLabel = 'Market quote baselines',
   className = '',
+  clockSession = null,
 }) {
   if (!onBaselineChange) return null;
   return (
@@ -127,6 +128,7 @@ export function MarketBaselineAllRow({
           baselineId={baselineId}
           onBaselineChange={onBaselineChange}
           theme={theme}
+          clockSession={clockSession}
           className="shrink-0 snap-start"
         />
       ))}

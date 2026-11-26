@@ -9,24 +9,14 @@ import { resolveYahooQuotePanels, yahooQuoteFooterStats } from '../lib/yahooHero
 function QuoteFooter({ quote, currency }) {
   const { parts } = yahooQuoteFooterStats(quote, currency);
   if (!parts.length) return null;
-  return (
-    <div className="text-[10px] text-slate-500 leading-relaxed flex flex-wrap gap-x-3 gap-y-0.5">
-      {parts.map((p) => (
-        <span key={p.label} className="whitespace-nowrap">
-          <span>{p.label}</span>{' '}
-          {p.low != null ? (
-            <span className="font-mono tabular-nums text-slate-400">
-              {formatStockPrice(p.low, currency)} - {formatStockPrice(p.high, currency)}
-            </span>
-          ) : (
-            <span className="font-mono tabular-nums text-slate-400">
-              {formatStockPrice(p.value, currency)}
-            </span>
-          )}
-        </span>
-      ))}
-    </div>
-  );
+  const text = parts
+    .map((p) =>
+      p.low != null
+        ? `${p.label} ${formatStockPrice(p.low, currency)} - ${formatStockPrice(p.high, currency)}`
+        : `${p.label} ${formatStockPrice(p.value, currency)}`,
+    )
+    .join(' · ');
+  return <p className="text-[10px] text-slate-500 leading-snug tabular-nums">{text}</p>;
 }
 
 function SessionPriceBlock({
@@ -102,27 +92,6 @@ function YahooSessionPanels({
   showTitle,
   className,
 }) {
-  if (panels.kind === 'historical') {
-    const h = panels.historical;
-    return (
-      <div className={`space-y-2 ${className}`}>
-        {showTitle ? <TitleRow companyName={companyName} ticker={ticker} /> : null}
-        <div className="text-[10px] text-slate-500">{h.meta?.subtitle}</div>
-        <SessionPriceBlock
-          price={h.price}
-          pct={h.pct}
-          abs={null}
-          timeLabel={h.meta?.badge ? `${h.meta.badge} view` : null}
-          currency={currency}
-          fxRate={fxRate}
-          showInrChange={showInrChange}
-          size={size}
-        />
-        <QuoteFooter quote={quote} currency={currency} />
-      </div>
-    );
-  }
-
   if (panels.kind === 'dual') {
     return (
       <div className={`space-y-2 ${className}`}>
@@ -178,12 +147,10 @@ export default function YahooQuoteStrip({
   companyName,
   ticker = 'MRVL',
   className = '',
-  viewBaselineId = null,
-  viewBaselineDaily = null,
 }) {
   if (!quote) return null;
 
-  const panels = resolveYahooQuotePanels(quote, now, viewBaselineId, viewBaselineDaily);
+  const panels = resolveYahooQuotePanels(quote, now);
   const heroSize = 'hero';
   const compactSize = size === 'lg' ? 'lg' : 'compact';
 

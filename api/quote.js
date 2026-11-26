@@ -1,4 +1,5 @@
 import { yahooFetch, yahooChartOrFallback } from './_yahooUpstream.js';
+import { enrichChartPayload } from './_chartQuote.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -24,7 +25,7 @@ export default async function handler(req, res) {
     let payload = null;
     let source = 'yahoo';
 
-    const upstream = await yahooFetch(path);
+    const upstream = await yahooFetch(path, { timeoutMs: 6_000, attemptsPerHost: 1 });
     if (upstream?.ok) {
       payload = await upstream.json();
       const meta = payload?.chart?.result?.[0]?.meta;
@@ -46,6 +47,10 @@ export default async function handler(req, res) {
     if (!payload?.chart?.result?.length) {
       res.status(502).json({ error: 'No quote data from Yahoo or Stooq fallback' });
       return;
+    }
+
+    if (source === 'yahoo' && interval.endsWith('m') && range === '1d') {
+      enrichChartPayload(payload, symbol);
     }
 
     const shortRange =

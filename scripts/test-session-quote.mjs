@@ -118,7 +118,7 @@ if (!postDay || Math.abs(postDay.pct - expectedPostPct) > 0.02) {
   console.error('FAIL pickSessionDayChange POST vs at close', postDay, expectedPostPct);
   process.exit(1);
 }
-if (postDay.referenceLabel !== 'After-hours vs at close') {
+if (postDay.referenceLabel !== 'After hours vs at close') {
   console.error('FAIL pickSessionDayChange POST referenceLabel', postDay.referenceLabel);
   process.exit(1);
 }

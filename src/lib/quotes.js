@@ -276,18 +276,9 @@ function resolvePreviousClose(meta, regularPrice, now = new Date()) {
   return previousClose;
 }
 
-/**
- * Watchlist/footer “Previous Close” = last completed regular session (at close)
- * during pre/post/closed; during live US regular, prior trading day close.
- */
-export function resolveDisplayPreviousClose(priorSessionClose, regularPrice, marketState) {
-  const state = String(marketState || '').trim().toUpperCase();
-  const clockRegular = isUsRegularSessionByClock(new Date());
-  if (state === 'REGULAR' && clockRegular && priorSessionClose != null) {
-    return priorSessionClose;
-  }
-  if (regularPrice != null) return regularPrice;
-  return priorSessionClose;
+/** “Previous Close” is always the prior session's close (Yahoo regularMarketPreviousClose). */
+export function resolveDisplayPreviousClose(priorSessionClose, regularPrice) {
+  return priorSessionClose ?? regularPrice ?? null;
 }
 
 /** Chart meta occasionally leaves regularMarketPrice at prior close while change fields moved. */
@@ -359,11 +350,7 @@ export function mapYahooMetaToQuote(meta, sym, chartResult, opts = {}) {
     regularChangePct = deriveChangePct(regularPrice, provisionalPrev);
   }
   const priorSessionClose = regMktPrevPinned ?? resolvePreviousClose(meta, regularPrice, now);
-  const displayPreviousClose = resolveDisplayPreviousClose(
-    priorSessionClose,
-    regularPrice,
-    String(meta.marketState || ''),
-  );
+  const displayPreviousClose = resolveDisplayPreviousClose(priorSessionClose, regularPrice);
   const extendedBase = regularPrice ?? priorSessionClose;
   const regularFromPrev = deriveChangePct(regularPrice, priorSessionClose);
   if (regularFromPrev != null) regularChangePct = regularFromPrev;

@@ -22,7 +22,7 @@ async function refreshYahooCrumb() {
     const fc = await fetchWithTimeout(
       'https://fc.yahoo.com/',
       { headers: UPSTREAM_HEADERS, redirect: 'manual' },
-      7_000,
+      3_000,
     );
     const rawCookies =
       typeof fc.headers.getSetCookie === 'function'
@@ -35,7 +35,7 @@ async function refreshYahooCrumb() {
         const crumbResp = await fetchWithTimeout(
           `https://${host}/v1/test/getcrumb`,
           { headers: { ...UPSTREAM_HEADERS, Cookie: cookie } },
-          7_000,
+          3_000,
         );
         if (!crumbResp.ok) continue;
         const crumb = (await crumbResp.text()).trim();
@@ -62,7 +62,10 @@ function appendCrumb(path, crumb) {
  * Retry alternate Yahoo CDN host on 429/5xx; bounded timeout per attempt.
  * v7 quote endpoints get Yahoo crumb + session cookie when available.
  */
-export async function yahooFetch(pathWithLeadingSlash, { timeoutMs = DEFAULT_UPSTREAM_TIMEOUT_MS } = {}) {
+export async function yahooFetch(
+  pathWithLeadingSlash,
+  { timeoutMs = DEFAULT_UPSTREAM_TIMEOUT_MS, attemptsPerHost = 2 } = {},
+) {
   const path = pathWithLeadingSlash.startsWith('/') ? pathWithLeadingSlash : `/${pathWithLeadingSlash}`;
   const needsCrumb = path.includes('/v7/') || path.includes('/v10/');
   const crumbPack = needsCrumb ? await refreshYahooCrumb() : null;
@@ -70,7 +73,7 @@ export async function yahooFetch(pathWithLeadingSlash, { timeoutMs = DEFAULT_UPS
   let lastResp = null;
   let lastErr = null;
   for (const host of YAHOO_HOSTS) {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < attemptsPerHost; attempt += 1) {
       let urlPath = path;
       const headers = { ...UPSTREAM_HEADERS };
       if (crumbPack?.crumb && needsCrumb) {

@@ -49,8 +49,8 @@ if (Math.abs(prev2 - 138.47) > 0.05) {
 }
 
 const quote = mapYahooMetaToQuote(alignedMeta, 'ADBE');
-if (Math.abs(quote.previous_close - 336.31) > 0.05) {
-  console.error('FAIL mapped previous_close (last at close)', quote.previous_close);
+if (Math.abs(quote.previous_close - 138.47) > 0.05) {
+  console.error('FAIL mapped previous_close (prior session close, as on Yahoo)', quote.previous_close);
   process.exit(1);
 }
 if (Math.abs(quote.regular_price - 336.31) > 0.1) {
@@ -165,7 +165,7 @@ if (Math.abs(gapQuote.regular_change_pct - -11.69) > 0.05) {
   console.error('FAIL MRVL gap regular day %', gapQuote.regular_change_pct);
   process.exit(1);
 }
-if (Math.abs(gapQuote.previous_close - 122.28) > 0.05) {
+if (Math.abs(gapQuote.previous_close - 138.47) > 0.05) {
   console.error('FAIL MRVL gap display previous_close', gapQuote.previous_close);
   process.exit(1);
 }

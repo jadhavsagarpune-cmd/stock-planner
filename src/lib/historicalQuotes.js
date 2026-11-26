@@ -4,7 +4,7 @@ import {
   putDailyBars,
 } from './priceHistoryStore';
 import { mergeLivePriceIntoBars, pickLiveChartPrice } from './chartLiveMerge';
-import { isUsRegularSessionByClock } from './stockMarketSession.js';
+import { HEATMAP_BASELINES } from './heatmapBaselines.js';
 import { clientFetchTimeout, mergeAbortSignals, CLIENT_FETCH_TIMEOUT_MS } from './fetchTimeout.js';
 
 export { mergeLivePriceIntoBars, pickLiveChartPrice };
@@ -18,43 +18,13 @@ const HEADERS = {
 };
 const RETRY_HTTP_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_PARALLEL = 6;
-const DEFAULT_RANGE = '3mo';
+const DEFAULT_RANGE = '1y';
 const DEFAULT_INTERVAL = '1d';
 
-/** Google Finance–style range chips for MRVL chart (Yahoo chart v8 range/interval). */
-export const MRVL_CHART_RANGES = [
-  {
-    id: 'LIVE',
-    label: 'LIVE',
-    range: '1d',
-    interval: '5m',
-    /** Selecting this chip also sets the global quote baseline to regular session live. */
-    syncBaselineId: 'live',
-  },
-  { id: '1D', label: '1D', range: '1d', interval: '5m' },
-  { id: '5D', label: '5D', range: '5d', interval: '15m' },
-  { id: '7D', label: '7D', range: '7d', interval: '30m' },
-  { id: '1M', label: '1M', range: '1mo', interval: '1d' },
-  { id: '3M', label: '3M', range: '3mo', interval: '1d' },
-  { id: '6M', label: '6M', range: '6mo', interval: '1d' },
-  { id: 'YTD', label: 'YTD', range: 'ytd', interval: '1d' },
-  { id: '1Y', label: '1Y', range: '1y', interval: '1d' },
-  { id: '5Y', label: '5Y', range: '5y', interval: '1wk' },
-];
-
-export const DEFAULT_MRVL_CHART_RANGE_ID = 'LIVE';
-
-/** Chart default: LIVE during RTH; otherwise 1D (no intraday “live” bar merge). */
-export function defaultMrvlChartRangeIdForClock(now = new Date()) {
-  return isUsRegularSessionByClock(now) ? 'LIVE' : '1D';
-}
-
-/** Primary chart chip row (scroll on narrow screens); longer ranges omitted from hero row. */
-export const MRVL_CHART_CHIP_IDS = ['LIVE', '1D', '5D', '7D', '1M', '3M', 'YTD'];
-
-export function mrvlChartChipRanges() {
-  const byId = new Map(MRVL_CHART_RANGES.map((r) => [r.id, r]));
-  return MRVL_CHART_CHIP_IDS.map((id) => byId.get(id)).filter(Boolean);
+/** Chart range/interval for a baseline id (see HEATMAP_BASELINES[].chart). */
+export function chartSpecForBaseline(baselineId) {
+  const spec = HEATMAP_BASELINES.find((b) => b.id === baselineId) ?? HEATMAP_BASELINES[0];
+  return spec.chart ?? { range: '1d', interval: '5m' };
 }
 
 export function chartHistoryUrl(symbol, range = DEFAULT_RANGE, interval = DEFAULT_INTERVAL) {
@@ -147,6 +117,13 @@ export async function fetchYahooDailyCloses(symbol, { signal } = {}) {
   });
 }
 
+/** Cached bars must reach back past Jan 1 so the YTD filter has a base close. */
+function coversYearStart(bars) {
+  if (!bars?.length) return false;
+  const jan1 = Date.UTC(new Date().getUTCFullYear(), 0, 1);
+  return bars[0].t <= jan1 + 7 * 24 * 3600 * 1000;
+}
+
 /**
  * Load daily closes from IndexedDB or Yahoo; updates IDB cache.
  * @returns {Promise<{ t: number, close: number }[]>}
@@ -155,7 +132,7 @@ export async function loadDailyBarsForSymbol(symbol, { force } = {}) {
   const sym = String(symbol || '').trim().toUpperCase();
   if (!force) {
     const cached = await getDailyBars(sym);
-    if (isDailyCacheFresh(cached)) return cached.bars;
+    if (isDailyCacheFresh(cached) && coversYearStart(cached.bars)) return cached.bars;
   }
   try {
     const bars = await fetchYahooDailyCloses(sym);

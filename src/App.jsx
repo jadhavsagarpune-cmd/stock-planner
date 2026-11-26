@@ -254,9 +254,7 @@ export default function App() {
       <header className="mb-3 sm:mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-lg sm:text-xl font-semibold text-white">Stock planner</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Yahoo Finance · semicon + cloud + big tech · MRVL ±5% · others ±10% · KRX in KRW
-          </p>
+          <p className="text-xs text-slate-500 mt-1">Yahoo Finance · MRVL ±5% · others ±10%</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           <button
@@ -284,7 +282,7 @@ export default function App() {
             onClick={() => downloadWatchlistCsv(items)}
             disabled={!items.length || loading}
             className="text-xs px-3 py-2 rounded-lg bg-slate-800 text-slate-300 border border-slate-600 disabled:opacity-50"
-            title="Download CSV of quotes and section summaries"
+            title="Download CSV"
           >
             Export CSV
           </button>
@@ -318,7 +316,7 @@ export default function App() {
 
       {mrvlStaleLabel ? (
         <p className="text-[11px] text-amber-400/90 mb-2 -mt-1" role="status">
-          MRVL price is {mrvlStaleLabel} — live Yahoo/Stooq fetch failed; showing last good quote.
+          MRVL quote is {mrvlStaleLabel} (live fetch failed).
         </p>
       ) : null}
 
@@ -333,7 +331,6 @@ export default function App() {
         mrvlExtInrHint={mrvlExtInrHint}
         baselineId={heatmapBaseline}
         onBaselineChange={onHeatmapBaselineChange}
-        mrvlDaily={dailyBySymbol?.get('MRVL') ?? null}
       />
 
       <div className="mb-4">
@@ -386,11 +383,9 @@ export default function App() {
       />
 
       <p className="text-[11px] text-slate-600 mt-4 leading-relaxed">
-        Alerts need this tab open (browser Notification API). iOS Safari limits background
-        notifications; keep the PWA/home-screen tab foreground for reliable polling.
+        Alerts need this tab open.
         <span className="block mt-1 text-slate-700 font-mono tabular-nums">
-          Build {typeof __APP_BUILD_SHA__ !== 'undefined' ? __APP_BUILD_SHA__ : 'dev'} · Yahoo v7
-          quote
+          Build {typeof __APP_BUILD_SHA__ !== 'undefined' ? __APP_BUILD_SHA__ : 'dev'}
         </span>
       </p>
     </div>

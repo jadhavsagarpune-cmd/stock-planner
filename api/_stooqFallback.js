@@ -79,7 +79,7 @@ export async function fetchStooqQuoteMeta(symbol) {
   if (!stooqSym) return null;
   const url = `https://stooq.com/q/l/?s=${encodeURIComponent(stooqSym)}&f=sd2t2ohlcv&h&e=csv`;
   try {
-    const resp = await fetchWithTimeout(url, { headers: STOOQ_HEADERS }, 8_000);
+    const resp = await fetchWithTimeout(url, { headers: STOOQ_HEADERS }, 4_000);
     if (!resp.ok) return null;
     const text = await resp.text();
     const data = parseStooqCsv(text);

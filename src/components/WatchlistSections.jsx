@@ -6,7 +6,6 @@ import {
   formatStockPrice,
   pickExtendedQuote,
   pickRegularMarketDisplay,
-  WATCHLIST_YAHOO_LEGEND,
 } from '../lib/stockFormat';
 import {
   extendedColumnTitle,
@@ -24,7 +23,7 @@ import {
   watchlistRowChangePct,
   watchlistUsesBaselinePct,
 } from '../lib/marketViewMode';
-import { MarketBaselineHistoryRow, MarketBaselineSessionRow } from './MarketBaselineChips';
+import { MarketBaselineAllRow } from './MarketBaselineChips';
 import { SORT_OPTIONS, sortWatchlistItems } from '../lib/watchlistAnalytics';
 import { ETF_BENCHMARKS, etfPctColorClass, formatEtfChipPct } from '../lib/etfBenchmarks';
 import StockPriceChangeLines from './StockPriceChangeLines';
@@ -50,7 +49,10 @@ function QuoteRow({ it, extendedMode, fxRate, compact, layout, baselineId, daily
   const market = exchangeHint(it.name);
   const columnMuted = isExtendedColumnMuted(extendedMode);
   const ext = pickExtendedQuote(it, extendedMode);
-  const regularCell = pickRegularMarketDisplay(it);
+  const rawRegularCell = pickRegularMarketDisplay(it);
+  const regularCell = rawRegularCell?.preIdle
+    ? { price: it.regular_price, pct: it.regular_change_pct, abs: it.regular_change_abs, live: false }
+    : rawRegularCell;
   const isMrvl = isMarvellCompany(symbol) || isMarvellCompany(displayName) || isMarvellCompany(full);
   const baselinePrice = useBaselinePct ? pickHeatmapPriceForBaseline(it, baselineId, daily) : null;
   const baselinePct = useBaselinePct
@@ -460,11 +462,6 @@ export default function WatchlistSections({
   const [sectionSortOverrides, setSectionSortOverrides] = useState({});
   const [compact, setCompact] = useState(false);
   const [collapsed, setCollapsed] = useState({});
-  const showExtendedSortHint =
-    extendedMode !== 'regular'
-    && globalSort === 'default'
-    && Object.keys(sectionSortOverrides).length === 0;
-
   const itemsBySymbol = useMemo(() => {
     const map = new Map();
     for (const it of items) {
@@ -487,61 +484,17 @@ export default function WatchlistSections({
 
   return (
     <div className="space-y-4">
-      <p
-        className="text-[10px] sm:text-[11px] text-slate-500 leading-snug px-1"
-        title="Yahoo Finance quote panel column semantics"
-      >
-        {WATCHLIST_YAHOO_LEGEND}
-      </p>
-      {showExtendedSortHint && (
-        <p className="text-[11px] text-violet-200/90 bg-violet-950/30 border border-violet-500/25 rounded-lg px-3 py-2 leading-snug">
-          US pre/post session — extended hours are live. Sort by{' '}
-          <button
-            type="button"
-            className="underline text-violet-100 font-semibold cursor-pointer"
-            onClick={() => setGlobalSort('ext_desc')}
-          >
-            Pre/after ↓
-          </button>{' '}
-          or{' '}
-          <button
-            type="button"
-            className="underline text-violet-100 font-semibold cursor-pointer"
-            onClick={() => setGlobalSort('ext_asc')}
-          >
-            Pre/after ↑
-          </button>{' '}
-          to rank extended movers.
-        </p>
-      )}
       <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-2.5 py-2 space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] uppercase tracking-wide text-slate-500 shrink-0">View</span>
-          <MarketBaselineSessionRow
-            baselineId={baselineId}
-            onBaselineChange={onBaselineChange}
-            theme="slate"
-            clockSession={columnMode}
-          />
-        </div>
-        <MarketBaselineHistoryRow
+        <MarketBaselineAllRow
           baselineId={baselineId}
           onBaselineChange={onBaselineChange}
           theme="slate"
-          scrollable
+          ariaLabel="Watchlist filter"
+          clockSession={extendedMode}
         />
-        <p className="text-[10px] text-slate-600 leading-snug">
-          Same baseline as heatmap & MRVL hero · LIVE = regular session % vs previous close
-        </p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-        <p
-          className="text-[11px] text-slate-500 leading-snug max-w-xl"
-          title="Grouped watchlists with per-section movers and sort. MRVL keeps INR hints and holdings."
-        >
-          Sections collapse independently · sticky headers · per-section sort overrides global
-        </p>
+      <div className="flex flex-wrap items-center justify-end gap-2 px-1">
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 text-[11px] text-slate-400">
             <span>All sections</span>
@@ -551,11 +504,7 @@ export default function WatchlistSections({
                 setGlobalSort(e.target.value);
                 setSectionSortOverrides({});
               }}
-              className={`text-[11px] bg-slate-950 border rounded-md px-2 py-1 text-slate-300 ${
-                showExtendedSortHint
-                  ? 'border-violet-500/50 ring-1 ring-violet-500/30'
-                  : 'border-slate-700'
-              }`}
+              className="text-[11px] bg-slate-950 border border-slate-700 rounded-md px-2 py-1 text-slate-300"
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>

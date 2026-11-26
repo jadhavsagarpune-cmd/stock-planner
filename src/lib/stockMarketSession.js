@@ -148,13 +148,13 @@ export function resolveUsExtendedColumnMode(itemsOrState, now = new Date()) {
 
 export function extendedColumnLabel(mode) {
   if (mode === 'holiday') return 'Market closed';
-  return mode === 'post' ? 'After Market' : 'Pre-market';
+  return mode === 'post' ? 'After hours' : 'Pre-market';
 }
 
 /** Subtitle under the extended-hours watchlist column header. */
 export function extendedColumnBaselineSubtitle(mode) {
-  if (mode === 'post') return 'vs Previous Close';
-  if (mode === 'pre') return 'vs Previous Close';
+  if (mode === 'post') return 'vs at close';
+  if (mode === 'pre') return 'vs at close';
   if (mode === 'holiday') return 'NYSE closed';
   return '';
 }
@@ -170,16 +170,16 @@ export function regularMarketColumnSubtitle(extendedMode) {
 /** Tooltip for pre/post watchlist column headers and cells. */
 export function extendedColumnTitle(mode) {
   if (mode === 'regular') {
-    return 'Pre-market / After Market hidden during US regular session (9:30–16:00 ET)';
+    return 'Pre-market and after hours are hidden during the US regular session';
   }
   if (mode === 'holiday') {
     const name = nyseHolidayLabel() ?? 'NYSE holiday';
     return `US equity markets closed · ${name}`;
   }
   if (mode === 'post') {
-    return 'After Market price · $/% vs Previous Close (regular session is closed)';
+    return 'After hours price vs at close';
   }
-  return 'Pre-market price · $/% vs Previous Close';
+  return 'Pre-market price vs at close';
 }
 
 export function regularMarketColumnTitle(extendedMode) {
@@ -196,7 +196,7 @@ export function regularMarketColumnTitle(extendedMode) {
 }
 
 export function previousCloseColumnTitle() {
-  return 'Previous Close (Yahoo regularMarketPreviousClose / previousClose) — prior session only';
+  return 'Close of the prior trading session';
 }
 
 /** Watchlist: only two price columns — Previous Close + (Pre | After | Live). */
@@ -229,7 +229,7 @@ export function watchlistSecondColumnLabel(extendedMode) {
   }
   if (extendedMode === 'post') {
     return {
-      label: 'After Market',
+      label: 'After hours',
       subtitle: extendedColumnBaselineSubtitle('post'),
       title: extendedColumnTitle('post'),
     };
@@ -248,7 +248,7 @@ export function heatmapSessionMeta(mode, now = new Date()) {
     return {
       badge: 'CLOSED',
       title: `Market closed · ${hol}`,
-      subtitle: `NYSE closed (${hol}) · extended hours not active`,
+      subtitle: `NYSE closed (${hol})`,
       badgeClass:
         'bg-slate-800/90 text-slate-300 border-slate-500/60 ring-1 ring-slate-500/25',
     };
@@ -257,7 +257,7 @@ export function heatmapSessionMeta(mode, now = new Date()) {
     return {
       badge: 'LIVE',
       title: 'Market heatmap · Live',
-      subtitle: 'Regular session % vs previous close · clustered by move',
+      subtitle: 'Regular session vs previous close',
       badgeClass:
         'bg-emerald-950/80 text-emerald-300 border-emerald-600/50 ring-1 ring-emerald-500/30',
     };
@@ -266,15 +266,15 @@ export function heatmapSessionMeta(mode, now = new Date()) {
     return {
       badge: 'PRE',
       title: 'Market heatmap · Pre-market',
-      subtitle: 'Pre-market % vs previous close · US names (KRX uses local session)',
+      subtitle: 'Pre-market vs at close',
       badgeClass:
         'bg-amber-950/80 text-amber-200 border-amber-600/50 ring-1 ring-amber-500/30',
     };
   }
   return {
     badge: 'AFTER',
-    title: 'Market heatmap · After Market',
-    subtitle: 'After-hours % vs regular close · US names (KRX uses local session)',
+    title: 'Market heatmap · After hours',
+    subtitle: 'After hours vs at close',
     badgeClass:
       'bg-violet-950/80 text-violet-200 border-violet-600/50 ring-1 ring-violet-500/30',
   };

@@ -103,7 +103,7 @@ export function sessionHeadlineLabel(quote, now = new Date()) {
   }
   const session = resolveActiveSession(quote, now);
   if (session === 'pre') return 'Pre-market';
-  if (session === 'post') return 'After Market';
+  if (session === 'post') return 'After hours';
   if (session === 'regular') return 'Regular Market';
   return 'At close';
 }
@@ -172,7 +172,7 @@ export function pickSessionDayChange(quote, now = new Date()) {
     }
     abs = deriveExtendedChangeAbs(price, atClose, pct) ?? abs;
     if (pct == null && abs == null) return null;
-    return { pct, abs, referenceLabel: 'After-hours vs at close' };
+    return { pct, abs, referenceLabel: 'After hours vs at close' };
   }
 
   if (session === 'regular') {

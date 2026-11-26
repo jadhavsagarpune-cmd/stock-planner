@@ -67,17 +67,17 @@ try {
     process.exit(1);
   }
 
-  if (quote.postmarket_price != null && quote.previous_close != null) {
+  if (quote.postmarket_price != null && quote.regular_price != null) {
     const derivedPct =
-      ((quote.postmarket_price - quote.previous_close) / quote.previous_close) * 100;
+      ((quote.postmarket_price - quote.regular_price) / quote.regular_price) * 100;
     if (!near(quote.postmarket_change_pct, derivedPct, 0.08)) {
-      console.error('FAIL after change not vs previous close', {
+      console.error('FAIL after change not vs at close', {
         postmarket_change_pct: quote.postmarket_change_pct,
         derivedPct,
       });
       process.exit(1);
     }
-    assertions.push(`after~${quote.postmarket_change_pct?.toFixed(2)}% vs previous close`);
+    assertions.push(`after~${quote.postmarket_change_pct?.toFixed(2)}% vs at close`);
   }
 
   console.log('OK ADBE assertions', assertions);
@@ -98,8 +98,8 @@ try {
     postMarketChangePercent: -0.815,
   };
   const quote = mapYahooMetaToQuote(fixture, 'ADBE');
-  if (!near(quote.previous_close, 336.31, 0.05)) {
-    console.error('FAIL offline previous_close (last at close)');
+  if (!near(quote.previous_close, 138.47, 0.05)) {
+    console.error('FAIL offline previous_close (prior session close)');
     process.exit(1);
   }
   if (!near(quote.regular_price, 336.31, 0.1)) {
