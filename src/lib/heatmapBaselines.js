@@ -111,8 +111,28 @@ export function saveHeatmapBaselineId(id) {
   }
 }
 
-export function heatmapBaselineMeta(baselineId) {
+/**
+ * @param {string} baselineId
+ * @param {'pre'|'post'|'regular'} [clockExtendedMode] — US session from clock/quotes (for LIVE filter badge)
+ */
+export function heatmapBaselineMeta(baselineId, clockExtendedMode = 'regular') {
   const base = HEATMAP_BASELINES.find((b) => b.id === baselineId) ?? HEATMAP_BASELINES[0];
+  if (base.id === 'live') {
+    const sessionMeta = heatmapSessionMeta(clockExtendedMode);
+    const sessionTitle =
+      clockExtendedMode === 'regular'
+        ? 'Live'
+        : clockExtendedMode === 'pre'
+          ? 'Pre-market'
+          : 'After Market';
+    return {
+      ...sessionMeta,
+      title: `Market heatmap · ${sessionTitle}`,
+      subtitle: 'Regular session % vs previous close · clustered by move',
+      filterBadge: 'LIVE',
+      base,
+    };
+  }
   if (base.sessionMode) {
     return { ...heatmapSessionMeta(base.sessionMode), base };
   }

@@ -5,8 +5,12 @@ import {
 } from './heatmapBaselines.js';
 import { pickHeatmapChangePct } from './stockFormat.js';
 
-/** @returns {'pre'|'post'|'regular'|null} when baseline forces a session column view */
+/**
+ * @returns {'pre'|'post'|'regular'|null} when baseline forces quote/column session UI.
+ * `live` is filter-only (regular-session %); UI session follows the market clock.
+ */
 export function sessionModeFromBaselineId(baselineId) {
+  if (baselineId === 'live') return null;
   const spec = HEATMAP_BASELINES.find((b) => b.id === baselineId);
   return spec?.sessionMode ?? null;
 }
@@ -20,7 +24,6 @@ export function isSessionBaselineId(baselineId) {
  */
 export function resolveWatchlistExtendedMode(baselineId, clockExtendedMode) {
   const forced = sessionModeFromBaselineId(baselineId);
-  if (forced === 'regular') return 'regular';
   if (forced === 'pre') return 'pre';
   if (forced === 'post') return 'post';
   return clockExtendedMode;
@@ -67,6 +70,9 @@ export function watchlistRowChangePct(it, baselineId, clockExtendedMode, daily =
   if (!it || it.status !== 'done') return null;
   if (watchlistUsesBaselinePct(baselineId)) {
     return pickHeatmapChangePctForBaseline(it, baselineId, daily);
+  }
+  if (baselineId === 'live') {
+    return pickHeatmapChangePct(it, 'regular');
   }
   const mode = resolveWatchlistExtendedMode(baselineId, clockExtendedMode);
   return pickHeatmapChangePct(it, mode === 'regular' ? 'regular' : mode);

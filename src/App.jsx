@@ -260,6 +260,7 @@ export default function App() {
           baselineId={heatmapBaseline}
           onBaselineChange={onHeatmapBaselineChange}
           dailyBySymbol={dailyBySymbol}
+          extendedMode={extendedMode}
         />
       </div>
 
@@ -297,6 +298,7 @@ export default function App() {
         usdInr={usdInr}
         usdInrErr={usdInrErr}
         baselineId={heatmapBaseline}
+        extendedMode={extendedMode}
         onBaselineChange={onHeatmapBaselineChange}
         mrvlDaily={dailyBySymbol?.get('MRVL') ?? null}
       />

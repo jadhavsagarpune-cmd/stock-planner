@@ -11,6 +11,7 @@ import {
   pickActiveSessionPrice,
   pickSessionDayChange,
   resolveActiveSession,
+  sessionHeadlineLabel,
 } from '../lib/sessionQuote';
 import {
   pickHeatmapChangePctForBaseline,
@@ -101,19 +102,12 @@ function YahooQuoteHero({
         ? 'Pre-market'
         : forcedSession === 'post'
           ? 'After Market'
-          : 'Regular Market · LIVE';
+          : sessionHeadlineLabel(quote, now);
   } else {
     const dayChange = pickSessionDayChange(quote, now);
     headlinePct = dayChange?.pct ?? null;
     headlineAbs = dayChange?.abs ?? null;
-    headlineLabel =
-      session === 'pre'
-        ? 'Pre-market'
-        : session === 'post'
-          ? 'After-hours'
-          : session === 'regular'
-            ? 'Regular Market · LIVE'
-            : 'At close';
+    headlineLabel = sessionHeadlineLabel(quote, now);
   }
 
   let headlineTime = null;
@@ -345,7 +339,7 @@ export default function YahooQuoteStrip({
         <div>
           <div className={labelClass}>
             Regular Market
-            {regularCell?.live || forcedSession === 'regular' ? (
+            {regularCell?.live ? (
               <span className="text-emerald-400/90 normal-case tracking-normal ml-1">LIVE</span>
             ) : null}
           </div>

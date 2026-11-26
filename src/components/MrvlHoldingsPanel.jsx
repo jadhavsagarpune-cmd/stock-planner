@@ -49,6 +49,7 @@ export default function MrvlHoldingsPanel({
   baselineId = 'live',
   onBaselineChange,
   mrvlDaily = null,
+  extendedMode = 'regular',
 }) {
   const titleId = useId();
   const [shares, setShares] = useState('');
@@ -141,7 +142,7 @@ export default function MrvlHoldingsPanel({
     };
   }, [customPrice, liveUsd, shareCount, fxRate]);
 
-  const quoteViewMeta = heatmapBaselineMeta(baselineId);
+  const quoteViewMeta = heatmapBaselineMeta(baselineId, extendedMode);
 
   if (!open) return null;
 

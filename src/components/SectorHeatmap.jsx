@@ -109,8 +109,9 @@ export default function SectorHeatmap({
   baselineId = 'live',
   onBaselineChange,
   dailyBySymbol = null,
+  extendedMode = 'regular',
 }) {
-  const session = heatmapBaselineMeta(baselineId);
+  const session = heatmapBaselineMeta(baselineId, extendedMode);
   const needsHistory = baselineNeedsDailyHistory(baselineId);
   const historyReady = !needsHistory || (dailyBySymbol && dailyBySymbol.size > 0);
   const bySym = new Map();

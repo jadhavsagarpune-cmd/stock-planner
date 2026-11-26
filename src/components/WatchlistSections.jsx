@@ -151,7 +151,7 @@ function QuoteRow({ it, extendedMode, fxRate, compact, layout, baselineId, daily
             <div className="flex flex-col items-end gap-0.5">
               <span className="font-mono tabular-nums text-white font-semibold text-xs sm:text-sm">
                 {formatStockPrice(regularCell?.price, it.currency)}
-                {regularCell?.live || extendedMode === 'regular' ? (
+                {regularCell?.live ? (
                   <span className="text-emerald-400/80 font-normal text-[9px] sm:text-[10px] ml-1">
                     live
                   </span>

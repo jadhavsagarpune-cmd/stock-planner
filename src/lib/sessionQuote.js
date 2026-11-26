@@ -100,6 +100,20 @@ export function activeSessionPriceLabel(quote, now = new Date()) {
   return sessionHeadlineLabel(quote, now);
 }
 
+/** User-facing session pill (PRE / REG / POST / CLOSED from marketStatusChip). */
+export function marketSessionDisplayLabel(chip) {
+  switch (chip) {
+    case 'PRE':
+      return 'Pre-Market';
+    case 'POST':
+      return 'After Hours';
+    case 'REG':
+      return 'Live';
+    default:
+      return 'Closed';
+  }
+}
+
 /**
  * Session-aligned day change (do not show regular day change under a pre headline).
  * @returns {{ pct: number|null, abs: number|null, referenceLabel: string }|null}
